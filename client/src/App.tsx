@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Analytics } from "@vercel/analytics/react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
@@ -29,6 +30,7 @@ function App() {
       <TooltipProvider delayDuration={100}>
         <Toaster />
         <Router />
+        <Analytics />
       </TooltipProvider>
     </QueryClientProvider>
   );
