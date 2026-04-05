@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Upload, FileText, Link as LinkIcon, Edit3, CheckCircle, ArrowRight, MessageSquare, Key, Send } from "lucide-react";
 import {
     Dialog,
@@ -338,8 +338,13 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="mt-12 pt-6 pb-12 text-[10px] text-muted-foreground font-mono text-center uppercase tracking-wider opacity-60">
+            <div className="mt-12 pt-6 pb-12 text-[10px] text-muted-foreground font-mono text-center uppercase tracking-wider opacity-60 space-y-2">
                 <p>Scientific Revolution (C) 2026 Sail v0</p>
+                <Link href="/admin">
+                  <a className="hover:text-foreground hover:underline underline-offset-4">
+                    Admin
+                  </a>
+                </Link>
             </div>
         </div>
     );

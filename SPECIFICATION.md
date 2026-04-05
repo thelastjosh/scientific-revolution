@@ -1,10 +1,10 @@
 # Scientific Revolution (Sail v1) - Platform Specification
 
 ## 1. Overview
-**Scientific Revolution** is a coordination platform designed to facilitate collaboration within distributed, volunteer-driven movements whose participants are largely driven by intrinsic motivation rather than extrinsic motivation such as pay or praise. The system is built around users (including individuals, organizations, and AI agents) who have some capacity, often latent. Users also contribute tasks and projects, though these are often latent as well and require work to elicit the right ones. The platform is designed with a simple but colorful aesthetic, emphasizing functionality, clarity, and the belief that work should be purposeful and engaging.
+**Scientific Revolution** is a coordination platform designed to facilitate collaboration within distributed, volunteer-driven movements whose participants are largely driven by intrinsic motivation rather than extrinsic motivation such as pay or praise. The system is built around users (including individuals, organizations, and AI agents) who have some capacity, often latent. Users also contribute tasks and projects, though these are often latent as well and require work to elicit the right ones. The platform is designed with a stark, functional aesthetic aligned to the design system below, emphasizing clarity and the belief that work should be purposeful and engaging.
 
 ## 2. Core Purpose
-To match highly skilled individuals with roles, projects, tasks, and events by analyzing their capabilities, maintaining a relationship graph, organizing and syncing context, and trying to understand and support their intrinsic motivation(s).
+To match highly skilled individuals with roles, projects, tasks, and events by analyzing their capabilities, maintaining a relationship graph, and trying to understand and support their intrinsic motivation(s).
 
 ## 2.1 Core Use-cases
 1. Matching people with meaningful volunteer work within organizations like UNICEF or Public AI
@@ -27,8 +27,8 @@ The entry point into the network offers three distinct paths for a user to initi
 ### 3.2. Contributor Dashboard
 The central hub for active network participants.
 *   **Task Feed:** A highly focused, social-first feed of available tasks and projects. Task cards use generous whitespace (min 60vh height) to ensure the user focuses on one task at a time.
+*   **Nearby Nodes & Team View:** A toggleable view showing active network participants, AI agents, and organizations (like UNICEF) in the immediate network vicinity, including "ghost nodes" highlighting skill gaps.
 *   **Synchronous Event Calendar:** A slide-out panel (Sheet) in the header that curates and displays upcoming synchronous network events.
-*   **Motivation Score System:** Instead of earning traditional units or currency, actions yield positive or negative motivation (`+ MOTIVATION` / `- MOTIVATION`). This conceptually represents the predicted likelihood of the user completing future tasks.
 
 ### 3.3. Task Dossier & Workspace
 A detailed view for executing specific network tasks.
@@ -37,7 +37,7 @@ A detailed view for executing specific network tasks.
 
 ### 3.4. Profile & Identity Management
 Users manage their network identity and connections.
-*   **Profile Editor:** Markdown-based editing for personal profiles (`profile.md`).
+*   **Profile Editor:** Markdown-based editing for personal profiles (`profile.md`), maintaining a strict brutalist aesthetic.
 *   **Relationship Graph (`relationships.md`):** A dedicated section for mapping connections to other users or DAOs using wiki-style linking (e.g., `[[Public AI]]`).
 *   **Graph Visualization:** A toggleable, SVG-based network visualization that maps out the user's connections within the broader Scientific Revolution ecosystem.
 
@@ -50,22 +50,24 @@ Users manage their network identity and connections.
     *   User proceeds to the Dashboard.
 
 2.  **Discovery & Engagement (Dashboard):**
-    *   User views their global network status (Connection, Latency, Motivation).
+    *   User views their global network status and toggles between "Nearby Nodes" and "My Team".
+    *   User views their global network status (Connection, Latency).
     *   User scrolls through the vertically-spaced task feed.
-    *   User can open the Calendar to view or join synchronous events.
+    *   User can open the Calendar to view or join synchronous network events.
     *   User selects a task to view its detailed Dossier.
 
 3.  **Task Execution (Dossier):**
     *   User reviews the task rationale and evaluation criteria.
     *   User accesses the Workspace, potentially connecting their MCP (Claude Desktop) for assistance.
-    *   Upon task completion or interaction, the user's Motivation Score is updated.
 
 4.  **Network Identity (Profile):**
-    *   User periodically updates their `profile.md`.
-    *   User defines new affiliations in `relationships.md`.
+    *   User periodically updates their private `profile.md`.
+    *   System defines new affiliations in `relationships.md`; user may modify.
     *   User views their expanded social graph to see their position within the network.
 
 ## 5. Design System & Aesthetics
 *   **Visual Style:** Brutalist, stark, monochrome (black and white).
 *   **Typography:** Monospace fonts exclusively (IBM Plex Mono/Courier equivalents). Heavy use of uppercase text with wide tracking for headings and buttons.
 *   **Layout:** Border-heavy elements, sharp corners (no border-radius), and high-contrast active/hover states. Generous use of whitespace in content feeds to force focus.
+*   **Imagery:** All avatars and images use grayscale and high contrast filters to maintain the monochrome aesthetic.
+*   **Components:** Custom scrollbars, stark tooltips, and uniform button sizing.

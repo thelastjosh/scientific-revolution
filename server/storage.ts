@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { getDatabaseUrl } from "@shared/database-url";
 import { type User, type InsertUser, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { getDb } from "./db";
@@ -37,14 +38,14 @@ export class MemStorage implements IStorage {
 export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const db = getDb();
-    if (!db) throw new Error("DATABASE_URL is not configured");
+    if (!db) throw new Error("DATABASE_URL or POSTGRES_URL is not configured");
     const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return rows[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const db = getDb();
-    if (!db) throw new Error("DATABASE_URL is not configured");
+    if (!db) throw new Error("DATABASE_URL or POSTGRES_URL is not configured");
     const rows = await db
       .select()
       .from(users)
@@ -55,14 +56,14 @@ export class DbStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const db = getDb();
-    if (!db) throw new Error("DATABASE_URL is not configured");
+    if (!db) throw new Error("DATABASE_URL or POSTGRES_URL is not configured");
     const rows = await db.insert(users).values(insertUser).returning();
     return rows[0]!;
   }
 }
 
 function createStorage(): IStorage {
-  if (process.env.DATABASE_URL) {
+  if (getDatabaseUrl()) {
     return new DbStorage();
   }
   return new MemStorage();

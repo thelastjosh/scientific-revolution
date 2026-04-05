@@ -10,6 +10,8 @@ import Dashboard from "@/pages/dashboard";
 import Dossier from "@/pages/dossier";
 import Profile from "@/pages/profile";
 import PublicProfile from "@/pages/public-profile";
+import Admin from "@/pages/admin";
+import { UiExperimentsProvider } from "@/features/experiments/ui-experiments-context";
 
 function Router() {
   return (
@@ -19,6 +21,7 @@ function Router() {
       <Route path="/dossier" component={Dossier} />
       <Route path="/profile" component={Profile} />
       <Route path="/node/:id" component={PublicProfile} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -27,11 +30,13 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={100}>
-        <Toaster />
-        <Router />
-        <Analytics />
-      </TooltipProvider>
+      <UiExperimentsProvider>
+        <TooltipProvider delayDuration={100}>
+          <Toaster />
+          <Router />
+          <Analytics />
+        </TooltipProvider>
+      </UiExperimentsProvider>
     </QueryClientProvider>
   );
 }

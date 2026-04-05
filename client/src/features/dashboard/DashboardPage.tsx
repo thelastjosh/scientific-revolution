@@ -30,6 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { GlobalStatusBoard } from "./global-status";
+import { FeatureGate } from "@/features/experiments/FeatureGate";
+import { useUiExperiment } from "@/features/experiments/useUiExperiment";
 import profile1 from "@/assets/images/profile-1.png";
 import profile2 from "@/assets/images/profile-2.png";
 import profile3 from "@/assets/images/profile-3.png";
@@ -52,6 +54,8 @@ export default function Dashboard() {
     { id: '1', text: 'Help set up an agent framework for my org' },
     { id: '2', text: 'Review smart contract security architecture' }
   ]);
+
+  const taskCardLayout = useUiExperiment("dashboard.task_card_layout");
 
   const handleAddGoal = () => {
     if (intent.trim()) {
@@ -94,6 +98,7 @@ export default function Dashboard() {
              <span className="text-xs px-2 py-0.5 border border-border hidden md:inline-block">BETA</span>
           </div>
           <div className="flex items-center gap-2 text-sm overflow-x-auto no-scrollbar">
+            <FeatureGate flagKey="dashboard.invite_sheet">
             <Sheet>
               <SheetTrigger asChild>
                 <button className="text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-border h-8 px-2 sm:px-0 sm:w-28 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center justify-center gap-1 sm:gap-2 shrink-0">
@@ -161,6 +166,7 @@ export default function Dashboard() {
                  </div>
               </SheetContent>
             </Sheet>
+            </FeatureGate>
 
             <Link href="/profile">
                 <a className="text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-border h-8 px-2 sm:px-0 sm:w-28 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center justify-center gap-1 sm:gap-2 shrink-0">
@@ -232,6 +238,7 @@ export default function Dashboard() {
               </SheetContent>
             </Sheet>
 
+            <FeatureGate flagKey="dashboard.calendar_sheet">
             <Sheet>
               <SheetTrigger asChild>
                 <button className="text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-border h-8 px-2 sm:px-0 sm:w-28 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center justify-center gap-1 sm:gap-2 shrink-0">
@@ -288,6 +295,7 @@ export default function Dashboard() {
                  </div>
               </SheetContent>
             </Sheet>
+            </FeatureGate>
 
             <Link href="/login">
                 <a className="text-[10px] sm:text-xs font-bold uppercase tracking-widest border border-border h-8 px-2 sm:px-0 sm:w-28 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center justify-center gap-1 sm:gap-2 shrink-0">
@@ -1044,7 +1052,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!activeTask && <GlobalStatusBoard />}
+        {!activeTask && (
+          <FeatureGate flagKey="dashboard.global_status">
+            <GlobalStatusBoard />
+          </FeatureGate>
+        )}
 
         {/* Command Projects */}
         {!activeTask && !communityFilter && (
@@ -1431,7 +1443,11 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     onClick={() => handleStartTask(task)}
-                    className="group border border-border p-8 md:p-12 hover:bg-secondary cursor-pointer transition-all hover:border-black dark:hover:border-white relative min-h-[60vh] flex flex-col justify-center"
+                    className={
+                      taskCardLayout.enabled && taskCardLayout.variant === "variant_b"
+                        ? "group border-2 border-dashed border-foreground/50 p-6 md:p-10 hover:bg-secondary/40 cursor-pointer transition-all relative min-h-[40vh] flex flex-col justify-center"
+                        : "group border border-border p-8 md:p-12 hover:bg-secondary cursor-pointer transition-all hover:border-black dark:hover:border-white relative min-h-[60vh] flex flex-col justify-center"
+                    }
                     data-testid={`task-card-${task.id}`}
                   >
                     <div className="flex justify-between items-start mb-2">
