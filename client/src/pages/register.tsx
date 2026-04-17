@@ -16,9 +16,9 @@ import { toast } from "sonner";
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const { register } = useAuth();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -27,10 +27,10 @@ export default function RegisterPage() {
     setPending(true);
     try {
       await register({
+        firstName,
+        lastName,
         email,
-        username,
         password,
-        displayName: displayName.trim() || undefined,
       });
       toast.success("Account created");
       setLocation("/dashboard");
@@ -47,11 +47,38 @@ export default function RegisterPage() {
         <CardHeader>
           <CardTitle>Create account</CardTitle>
           <CardDescription>
-            Username: letters, numbers, underscore, hyphen (2–48 chars).
+            Use your real first and last name, like LinkedIn or Facebook. Your
+            email is your sign-in.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  maxLength={50}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  maxLength={50}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -62,26 +89,6 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                name="username"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display name (optional)</Label>
-              <Input
-                id="displayName"
-                name="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
               />
             </div>
             <div className="space-y-2">

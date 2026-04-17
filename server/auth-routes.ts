@@ -10,19 +10,22 @@ import {
 import { createUserEdge, listEdgesForUser } from "./graph-service";
 import { storage } from "./storage";
 
+const nameField = z
+  .string()
+  .trim()
+  .min(1, "Required")
+  .max(50, "Too long")
+  .refine((s) => !/^\d+$/.test(s), "Invalid name");
+
 const registerSchema = z.object({
   email: z.string().email(),
-  username: z
-    .string()
-    .min(2)
-    .max(48)
-    .regex(/^[a-zA-Z0-9_-]+$/),
   password: z.string().min(8).max(128),
-  displayName: z.string().max(128).optional(),
+  firstName: nameField,
+  lastName: nameField,
 });
 
 const loginSchema = z.object({
-  identifier: z.string().min(1),
+  email: z.string().email(),
   password: z.string().min(1),
 });
 
@@ -44,22 +47,18 @@ export function registerAuthRoutes(app: Express): void {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.flatten() });
     }
-    const { email, username, password, displayName } = parsed.data;
+    const { email, password, firstName, lastName } = parsed.data;
     const emailNorm = email.trim().toLowerCase();
-    const existingName = await storage.getUserByUsername(username);
-    if (existingName) {
-      return res.status(409).json({ message: "Username already taken" });
-    }
     const existingEmail = await storage.getUserByEmail(emailNorm);
     if (existingEmail) {
       return res.status(409).json({ message: "Email already registered" });
     }
     const passwordHash = await hashPassword(password);
     const user = await storage.createUser({
-      username,
       email: emailNorm,
       passwordHash,
-      displayName: displayName ?? null,
+      firstName,
+      lastName,
     });
     const token = await signSessionToken(user.id);
     setSessionCookie(res, token);
@@ -71,11 +70,9 @@ export function registerAuthRoutes(app: Express): void {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.flatten() });
     }
-    const { identifier, password } = parsed.data;
-    const raw = identifier.trim();
-    const user = raw.includes("@")
-      ? await storage.getUserByEmail(raw.toLowerCase())
-      : await storage.getUserByUsername(raw);
+    const { email, password } = parsed.data;
+    const emailNorm = email.trim().toLowerCase();
+    const user = await storage.getUserByEmail(emailNorm);
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }

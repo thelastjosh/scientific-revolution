@@ -19,19 +19,19 @@ export type InsertUiExperiment = typeof uiExperiments.$inferInsert;
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").unique(),
+  email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  displayName: text("display_name"),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
   email: true,
   passwordHash: true,
-  displayName: true,
+  firstName: true,
+  lastName: true,
 });
 
 /** Directed edge in the user graph (e.g. collaboration, referral). */

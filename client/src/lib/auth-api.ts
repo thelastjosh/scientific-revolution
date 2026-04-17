@@ -25,14 +25,14 @@ export async function fetchMe(): Promise<PublicUser | null> {
 }
 
 export async function login(
-  identifier: string,
+  email: string,
   password: string,
 ): Promise<{ user: PublicUser }> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error(await jsonMessage(res));
   return (await res.json()) as { user: PublicUser };
@@ -40,9 +40,9 @@ export async function login(
 
 export async function register(payload: {
   email: string;
-  username: string;
+  firstName: string;
+  lastName: string;
   password: string;
-  displayName?: string;
 }): Promise<{ user: PublicUser }> {
   const res = await fetch("/api/auth/register", {
     method: "POST",

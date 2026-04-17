@@ -8,7 +8,6 @@ export type PublicUser = Omit<User, "passwordHash">;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   listUsersPublic(): Promise<PublicUser[]>;
   createUser(user: InsertUser): Promise<User>;
@@ -25,12 +24,6 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
   async getUserByEmail(email: string): Promise<User | undefined> {
     const n = email.trim().toLowerCase();
     return Array.from(this.users.values()).find(
@@ -39,7 +32,9 @@ export class MemStorage implements IStorage {
   }
 
   async listUsersPublic(): Promise<PublicUser[]> {
-    return Array.from(this.users.values()).map(({ passwordHash: _, ...rest }) => rest);
+    return Array.from(this.users.values())
+      .map(({ passwordHash: _, ...rest }) => rest)
+      .sort((a, b) => a.email.localeCompare(b.email));
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -48,8 +43,9 @@ export class MemStorage implements IStorage {
     const user: User = {
       ...insertUser,
       id,
-      email: insertUser.email ?? null,
-      displayName: insertUser.displayName ?? null,
+      email: insertUser.email,
+      firstName: insertUser.firstName,
+      lastName: insertUser.lastName,
       createdAt: now,
       updatedAt: now,
     };
@@ -63,17 +59,6 @@ export class DbStorage implements IStorage {
     const db = getDb();
     if (!db) throw new Error("DATABASE_URL or POSTGRES_URL is not configured");
     const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return rows[0];
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const db = getDb();
-    if (!db) throw new Error("DATABASE_URL or POSTGRES_URL is not configured");
-    const rows = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username))
-      .limit(1);
     return rows[0];
   }
 
@@ -94,14 +79,14 @@ export class DbStorage implements IStorage {
     const rows = await db
       .select({
         id: users.id,
-        username: users.username,
         email: users.email,
-        displayName: users.displayName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
       .from(users)
-      .orderBy(users.username);
+      .orderBy(users.email);
     return rows;
   }
 

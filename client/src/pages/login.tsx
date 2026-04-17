@@ -16,7 +16,7 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
     e.preventDefault();
     setPending(true);
     try {
-      await login(identifier, password);
+      await login(email, password);
       toast.success("Signed in");
       setLocation("/dashboard");
     } catch (err) {
@@ -40,19 +40,20 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>
-            Use your username or email and password.
+            Use the email and password for your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Username or email</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="identifier"
-                name="identifier"
-                autoComplete="username"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
