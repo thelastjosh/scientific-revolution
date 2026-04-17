@@ -5,15 +5,24 @@ import type { CookieOptions, Request, Response } from "express";
 const COOKIE = "sr_session";
 const BCRYPT_ROUNDS = 11;
 
+export const SESSION_SECRET_PRODUCTION_ERROR =
+  "SESSION_SECRET must be set (min 16 chars) in production. Generate: openssl rand -hex 32";
+
+/** Call once at process start so production misconfig fails fast instead of on first login. */
+export function assertProductionSessionSecret(): void {
+  const raw = process.env.SESSION_SECRET?.trim();
+  if (process.env.NODE_ENV !== "production") return;
+  if (raw && raw.length >= 16) return;
+  throw new Error(SESSION_SECRET_PRODUCTION_ERROR);
+}
+
 function getSessionSecret(): Uint8Array {
   const raw = process.env.SESSION_SECRET?.trim();
   if (raw && raw.length >= 16) {
     return new TextEncoder().encode(raw);
   }
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "SESSION_SECRET must be set (min 16 chars) in production. Generate: openssl rand -hex 32",
-    );
+    throw new Error(SESSION_SECRET_PRODUCTION_ERROR);
   }
   console.warn(
     "[auth] SESSION_SECRET not set — using insecure dev-only signing key",

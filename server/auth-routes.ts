@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import {
   clearSessionCookie,
@@ -42,48 +42,62 @@ function publicUser(u: Awaited<ReturnType<typeof storage.getUser>>) {
 }
 
 export function registerAuthRoutes(app: Express): void {
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
-    const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.flatten() });
-    }
-    const { email, password, firstName, lastName } = parsed.data;
-    const emailNorm = email.trim().toLowerCase();
-    const existingEmail = await storage.getUserByEmail(emailNorm);
-    if (existingEmail) {
-      return res.status(409).json({ message: "Email already registered" });
-    }
-    const passwordHash = await hashPassword(password);
-    const user = await storage.createUser({
-      email: emailNorm,
-      passwordHash,
-      firstName,
-      lastName,
-    });
-    const token = await signSessionToken(user.id);
-    setSessionCookie(res, token);
-    res.status(201).json({ user: publicUser(user) });
-  });
+  app.post(
+    "/api/auth/register",
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const parsed = registerSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.flatten() });
+        }
+        const { email, password, firstName, lastName } = parsed.data;
+        const emailNorm = email.trim().toLowerCase();
+        const existingEmail = await storage.getUserByEmail(emailNorm);
+        if (existingEmail) {
+          return res.status(409).json({ message: "Email already registered" });
+        }
+        const passwordHash = await hashPassword(password);
+        const user = await storage.createUser({
+          email: emailNorm,
+          passwordHash,
+          firstName,
+          lastName,
+        });
+        const token = await signSessionToken(user.id);
+        setSessionCookie(res, token);
+        res.status(201).json({ user: publicUser(user) });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
 
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.flatten() });
-    }
-    const { email, password } = parsed.data;
-    const emailNorm = email.trim().toLowerCase();
-    const user = await storage.getUserByEmail(emailNorm);
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    const ok = await verifyPassword(password, user.passwordHash);
-    if (!ok) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    const token = await signSessionToken(user.id);
-    setSessionCookie(res, token);
-    res.json({ user: publicUser(user) });
-  });
+  app.post(
+    "/api/auth/login",
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const parsed = loginSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ message: parsed.error.flatten() });
+        }
+        const { email, password } = parsed.data;
+        const emailNorm = email.trim().toLowerCase();
+        const user = await storage.getUserByEmail(emailNorm);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+        const token = await signSessionToken(user.id);
+        setSessionCookie(res, token);
+        res.json({ user: publicUser(user) });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
 
   app.post("/api/auth/logout", (_req: Request, res: Response) => {
     clearSessionCookie(res);

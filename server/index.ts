@@ -1,9 +1,11 @@
 import "dotenv/config";
 import { createServer } from "http";
+import { assertProductionSessionSecret } from "./auth";
 import { createApp, log } from "./app";
 import { serveStatic } from "./static";
 
 (async () => {
+  assertProductionSessionSecret();
   const app = await createApp();
   const httpServer = createServer(app);
 
