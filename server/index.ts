@@ -1,5 +1,7 @@
 import "dotenv/config";
+import cookieParser from "cookie-parser";
 import express, { type Request, Response, NextFunction } from "express";
+import { sessionMiddleware } from "./auth-middleware";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -22,6 +24,9 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+app.use(cookieParser());
+app.use(sessionMiddleware);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

@@ -4,10 +4,13 @@ import { rm, readFile } from "fs/promises";
 
 // Server deps to bundle to reduce openat(2) syscalls (helps cold start when running Node).
 const allowlist = [
+  "bcryptjs",
+  "cookie-parser",
   "date-fns",
   "drizzle-orm",
   "drizzle-zod",
   "express",
+  "jose",
   "nanoid",
   "pg",
   "zod",

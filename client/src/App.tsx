@@ -11,13 +11,23 @@ import Dossier from "@/pages/dossier";
 import Profile from "@/pages/profile";
 import PublicProfile from "@/pages/public-profile";
 import Admin from "@/pages/admin";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
 import { UiExperimentsProvider } from "@/features/experiments/ui-experiments-context";
+import { AuthProvider } from "@/features/auth/auth-context";
+import { RequireAuth } from "@/features/auth/RequireAuth";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route path="/dashboard">
+        <RequireAuth>
+          <Dashboard />
+        </RequireAuth>
+      </Route>
       <Route path="/dossier" component={Dossier} />
       <Route path="/profile" component={Profile} />
       <Route path="/node/:id" component={PublicProfile} />
@@ -31,11 +41,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <UiExperimentsProvider>
-        <TooltipProvider delayDuration={100}>
-          <Toaster />
-          <Router />
-          <Analytics />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider delayDuration={100}>
+            <Toaster />
+            <Router />
+            <Analytics />
+          </TooltipProvider>
+        </AuthProvider>
       </UiExperimentsProvider>
     </QueryClientProvider>
   );

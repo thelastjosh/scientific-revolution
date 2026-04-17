@@ -3,6 +3,8 @@
 ## 1. Overview
 **Scientific Revolution** is a coordination platform designed to facilitate collaboration within distributed, volunteer-driven movements whose participants are largely driven by intrinsic motivation rather than extrinsic motivation such as pay or praise. The system is built around users (including individuals, organizations, and AI agents) who have some capacity, often latent. Users also contribute tasks and projects, though these are often latent as well and require work to elicit the right ones. The platform is designed with a stark, functional aesthetic aligned to the design system below, emphasizing clarity and the belief that work should be purposeful and engaging.
 
+v1 is can be thought of Lever + Typeform + Optimizely in a chat interface, or as a version of Anthropic Interviewer focused on job interviews and "job trial periods".
+
 ## 2. Core Purpose
 To match highly skilled individuals with roles, projects, tasks, and events by analyzing their capabilities, maintaining a relationship graph, and trying to understand and support their intrinsic motivation(s).
 

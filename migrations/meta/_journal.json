@@ -15,6 +15,20 @@
       "when": 1775409039285,
       "tag": "0001_ui_experiments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775450140251,
+      "tag": "0002_onboarding_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776000000000,
+      "tag": "0003_auth_and_graph",
+      "breakpoints": true
     }
   ]
 }
