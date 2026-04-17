@@ -6,8 +6,8 @@ import { createApp } from "../server/app";
 let cachedApp: Express | undefined;
 
 /**
- * Vercel serverless entry: `vercel.json` rewrites `/api/*` → `/api/index`.
- * Express is invoked as a Node request listener (same as `http.createServer(app)`).
+ * Source for the Vercel bundle — built to `api/index.js` by `npm run build:vercel-api`.
+ * Do not import `../server/*` from `api/index.ts` on Vercel; the server folder is not deployed.
  */
 export default async function handler(
   req: IncomingMessage,
