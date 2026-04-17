@@ -54,7 +54,10 @@ export function registerAuthRoutes(app: Express): void {
         const emailNorm = email.trim().toLowerCase();
         const existingEmail = await storage.getUserByEmail(emailNorm);
         if (existingEmail) {
-          return res.status(409).json({ message: "Email already registered" });
+          return res.status(409).json({
+        message:
+          "That email is already registered. Sign in instead, or use a different email.",
+      });
         }
         const passwordHash = await hashPassword(password);
         const user = await storage.createUser({

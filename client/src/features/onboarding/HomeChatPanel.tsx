@@ -201,7 +201,7 @@ export function HomeChatPanel({
         {showEntryPreview && (
           <div className="space-y-6 text-left pr-8">
             <p
-              className="font-normal tracking-tight text-foreground"
+              className="font-normal tracking-tight whitespace-pre-line text-foreground"
               style={{
                 fontSize: `${PREVIEW_TITLE_FONT_REM}rem`,
                 lineHeight: PREVIEW_TITLE_FONT_REM > 1.75 ? 1.15 : 1.35,
@@ -244,7 +244,7 @@ export function HomeChatPanel({
             if (m.role === "user") {
               return (
                 <div key={m.id} className="text-right pl-8">
-                  <p className="text-sm font-normal tracking-tight leading-relaxed break-words text-foreground">
+                  <p className="text-sm font-normal tracking-tight leading-relaxed break-words whitespace-pre-line text-foreground">
                     {m.text}
                   </p>
                 </div>
@@ -252,7 +252,7 @@ export function HomeChatPanel({
             }
             return (
               <div key={m.id} className="text-left pr-8">
-                <p className="text-sm font-normal tracking-normal leading-relaxed break-words text-foreground">
+                <p className="text-sm font-normal tracking-normal leading-relaxed break-words whitespace-pre-line text-foreground">
                   <TypewriterText
                     text={m.text}
                     messageKey={m.id}

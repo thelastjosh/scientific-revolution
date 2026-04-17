@@ -22,5 +22,6 @@ export function assembleOnboardingSystemPrompt(
     `The user was already shown this exact greeting (do not repeat it, do not echo it as your whole reply): "${openingLine}"`,
     "Wait for their first reply before asking substantive onboarding questions.",
     "Keep every reply as short and curt as possible: prefer answers that are just one short sentence, or short bullet lines with a few words each. Avoid preamble, hedging, and repetition. Only go longer if the user explicitly asks for detail.",
+    "When you use bullets or a short list, put each item on its own line (newline before each leading -, •, or number).",
   ].join("\n");
 }

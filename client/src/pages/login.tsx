@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -19,16 +19,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setSubmitError(null);
     setPending(true);
     try {
       await login(email, password);
-      toast.success("Signed in");
+      toast({ title: "Signed in" });
       setLocation("/dashboard");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      const message =
+        err instanceof Error ? err.message : "Sign in failed";
+      setSubmitError(message);
+      toast({
+        variant: "destructive",
+        title: message,
+      });
     } finally {
       setPending(false);
     }
@@ -45,6 +53,14 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
+            {submitError ? (
+              <p
+                role="alert"
+                className="text-sm font-medium text-destructive rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2"
+              >
+                {submitError}
+              </p>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
