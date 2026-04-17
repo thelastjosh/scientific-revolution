@@ -1,5 +1,4 @@
 import type { Express, Request, Response } from "express";
-import type { Server } from "http";
 import { z } from "zod";
 import { uiExperimentVariantSchema } from "@shared/schema";
 import { completeOnboardingReply } from "./onboarding-chat";
@@ -56,10 +55,7 @@ function assertAdmin(req: Request): void {
   }
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express,
-): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   registerAuthRoutes(app);
 
   app.get("/api/onboarding/bootstrap", async (req: Request, res: Response) => {
@@ -126,6 +122,4 @@ export async function registerRoutes(
     }
     res.json({ experiment: updated });
   });
-
-  return httpServer;
 }

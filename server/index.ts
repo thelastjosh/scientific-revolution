@@ -1,88 +1,11 @@
 import "dotenv/config";
-import cookieParser from "cookie-parser";
-import express, { type Request, Response, NextFunction } from "express";
-import { sessionMiddleware } from "./auth-middleware";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
 import { createServer } from "http";
-
-const app = express();
-const httpServer = createServer(app);
-
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
-
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
-
-app.use(express.urlencoded({ extended: false }));
-
-app.use(cookieParser());
-app.use(sessionMiddleware);
-
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
+import { createApp, log } from "./app";
+import { serveStatic } from "./static";
 
 (async () => {
-  await registerRoutes(httpServer, app);
-
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const status =
-      err && typeof err === "object" && "status" in err && typeof (err as any).status === "number"
-        ? (err as any).status
-        : err && typeof err === "object" && "statusCode" in err && typeof (err as any).statusCode === "number"
-          ? (err as any).statusCode
-          : 500;
-    const message =
-      err && typeof err === "object" && "message" in err && typeof (err as any).message === "string"
-        ? (err as any).message
-        : "Internal Server Error";
-
-    console.error("[express]", err);
-    res.status(status).json({ message });
-  });
+  const app = await createApp();
+  const httpServer = createServer(app);
 
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
