@@ -32,6 +32,7 @@ yarn-error.log*
 .vercel
 # Bundled serverless entry (see script/build-vercel-api.ts)
 api/index.js
+api/package.json
 
 # typescript
 *.tsbuildinfo
