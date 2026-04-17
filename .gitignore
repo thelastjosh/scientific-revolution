@@ -30,9 +30,9 @@ yarn-error.log*
 
 # vercel
 .vercel
-# Bundled serverless entry (see script/build-vercel-api.ts)
-api/index.js
-api/package.json
+# `api/index.js` is a committed wrapper; the real bundle is generated
+# by `npm run build:vercel-api` to `api/_bundle.cjs`.
+api/_bundle.cjs
 
 # typescript
 *.tsbuildinfo

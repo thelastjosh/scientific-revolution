@@ -31,7 +31,10 @@ async function buildVercelApi() {
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: "api/index.js",
+    // Output to _bundle.cjs; api/index.js is a committed wrapper that
+    // `require`s this file. Keeps git diffs small across builds and makes
+    // Vercel's function glob match a stable committed file.
+    outfile: "api/_bundle.cjs",
     define: {
       "process.env.NODE_ENV": '"production"',
     },
@@ -41,17 +44,16 @@ async function buildVercelApi() {
     alias: {
       "@shared": path.join(root, "shared"),
     },
-    // esbuild emits CJS; ensure Vercel's runtime sees both a callable
-    // `module.exports` and `module.exports.default` so either dispatch
-    // convention works.
+    // esbuild's CJS output sets `module.exports.default = handler`; expose
+    // the handler directly on `module.exports` too so Vercel accepts it
+    // under either dispatch convention.
     footer: {
       js: "if (module.exports && module.exports.default) { const h = module.exports.default; module.exports = h; module.exports.default = h; }",
     },
   });
 
-  // The repo-level package.json declares `"type": "module"`, which would
-  // make Node load `api/index.js` as ESM and blow up on our CJS output.
-  // A local package.json in the api/ folder overrides that for this file.
+  // The repo root has `"type": "module"`; without this override Node would
+  // load the .cjs bundle through the ESM loader in some dispatch paths.
   await mkdir("api", { recursive: true });
   await writeFile(
     path.join("api", "package.json"),
