@@ -32,6 +32,7 @@ import {
 import { GlobalStatusBoard } from "./global-status";
 import { FeatureGate } from "@/features/experiments/FeatureGate";
 import { useUiExperiment } from "@/features/experiments/useUiExperiment";
+import { fetchOnboardingContext, type OnboardingContext } from "@/lib/onboarding-api";
 import profile1 from "@/assets/images/profile-1.png";
 import profile2 from "@/assets/images/profile-2.png";
 import profile3 from "@/assets/images/profile-3.png";
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const [hasRole, setHasRole] = useState(true); // Mock toggle for role component
   const [showTeam, setShowTeam] = useState(false); // Toggle to show team nodes vs nearby nodes
   const [taskForm, setTaskForm] = useState({ title: '', description: '', isSync: false, meetingLink: '', useNotetaker: false });
+  const [onboardingContext, setOnboardingContext] = useState<OnboardingContext | null>(null);
   
   const [goals, setGoals] = useState<{id: string, text: string}[]>([
     { id: '1', text: 'Help set up an agent framework for my org' },
@@ -56,6 +58,21 @@ export default function Dashboard() {
   ]);
 
   const taskCardLayout = useUiExperiment("dashboard.task_card_layout");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const context = await fetchOnboardingContext();
+        if (!cancelled) setOnboardingContext(context);
+      } catch {
+        if (!cancelled) setOnboardingContext(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAddGoal = () => {
     if (intent.trim()) {
@@ -308,6 +325,17 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
+        {onboardingContext ? (
+          <div className="mb-6 border border-border bg-card/30 p-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Onboarding state
+            </p>
+            <p className="text-sm mt-1">
+              Step: <span className="font-semibold">{onboardingContext.onboardingStep}</span>
+              {onboardingContext.summary ? ` · ${onboardingContext.summary}` : ""}
+            </p>
+          </div>
+        ) : null}
         
         {/* Intent Search Section */}
         {!activeTask && (

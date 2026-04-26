@@ -1,26 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowUpCircle } from "lucide-react";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { TypewriterText } from "./TypewriterText";
-import {
-  formatOnboardingOpeningMessage,
-  HELP_ME_ONBOARD_PROMPT,
-  HOME_OPENING_MESSAGE,
-} from "@shared/onboarding-opening";
+import { OnboardingAuthCard } from "./OnboardingAuthCard";
+import { ProfileSummaryDrawer } from "./ProfileSummaryDrawer";
+import { shouldShowOnboardingBlock } from "./onboarding-intent";
+import { HELP_ME_ONBOARD_PROMPT, HOME_OPENING_MESSAGE } from "@shared/onboarding-opening";
 import { PREVIEW_TITLE_FONT_REM } from "./home-chat-font";
 import { OnboardingIntro } from "./OnboardingIntro";
+import { useAuth } from "@/features/auth/auth-context";
+import { toast } from "@/hooks/use-toast";
 import {
   fetchOnboardingBootstrap,
   postOnboardingChat,
+  saveOnboardingContext,
 } from "@/lib/onboarding-api";
 
 export type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   text: string;
-  /** Renders the SR three-path onboarding UI instead of plain text */
   richOnboarding?: boolean;
+  authCardMode?: "login" | "register";
+  postAuthActions?: boolean;
 };
 
 function id() {
@@ -30,14 +33,11 @@ function id() {
 const EXAMPLE_PROMPTS = [
   { label: "What is Scientific Revolution?", value: "What is Scientific Revolution?" },
   { label: "Help me onboard", value: HELP_ME_ONBOARD_PROMPT },
-  { label: "What can I do here?", value: "What can I do here?" },
 ] as const;
 
 type HomeChatPanelProps = {
   inviteToken?: string | null;
-  /** Called when user sends a message (e.g. sync LED matrix) */
   onUserMessage?: (messageIndex: number, text: string) => void;
-  /** Context pane / home reset (e.g. clear LEDs) */
   onResetHome?: () => void;
 };
 
@@ -47,6 +47,7 @@ export function HomeChatPanel({
   onResetHome,
 }: HomeChatPanelProps) {
   const [, navigate] = useLocation();
+  const { user, login, register } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [ready, setReady] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -54,8 +55,17 @@ export function HomeChatPanel({
   const [chatError, setChatError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [inviteFirstName, setInviteFirstName] = useState<string | null>(null);
+  const [inviteProfile, setInviteProfile] = useState<{
+    token: string;
+    firstName: string | null;
+    email: string | null;
+    description: string | null;
+    researchSummary: string | null;
+  } | null>(null);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [previewSession, setPreviewSession] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRaf = useRef<number>(0);
 
   const scheduleScrollToBottom = useCallback(() => {
@@ -76,7 +86,6 @@ export function HomeChatPanel({
     onResetHome?.();
   }, [navigate, onResetHome]);
 
-  /** Preview title + example buttons — not part of message history */
   const showEntryPreview = ready && messages.length === 0;
 
   useEffect(() => {
@@ -86,15 +95,15 @@ export function HomeChatPanel({
     setMessages([]);
     (async () => {
       try {
-        const { inviteFirstName: fn } = await fetchOnboardingBootstrap(
-          inviteToken,
-        );
+        const bootstrap = await fetchOnboardingBootstrap(inviteToken);
         if (cancelled) return;
-        setInviteFirstName(fn);
+        setInviteFirstName(bootstrap.inviteFirstName);
+        setInviteProfile(bootstrap.inviteProfile);
       } catch {
         if (cancelled) return;
         setBootstrapError("Could not load invite context; chat still works.");
         setInviteFirstName(null);
+        setInviteProfile(null);
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -108,6 +117,37 @@ export function HomeChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, chatLoading]);
 
+  const addAuthCard = (mode: "login" | "register") => {
+    setMessages((prev) => [
+      ...prev,
+      { id: id(), role: "assistant", text: "", authCardMode: mode },
+    ]);
+  };
+
+  const finishAuthFlow = async () => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: id(),
+        role: "assistant",
+        text: "You're in. You can safely leave and we'll email you with a task later.",
+      },
+      { id: id(), role: "assistant", text: "", postAuthActions: true },
+    ]);
+    setProfileDrawerOpen(true);
+    try {
+      await saveOnboardingContext({
+        persona: inviteToken ? "invite_link" : "general",
+        inviteToken: inviteToken ?? null,
+        inviteEmail: inviteProfile?.email ?? user?.email ?? null,
+        onboardingStep: "authenticated_home_chat",
+        summary: draft.trim() || null,
+      });
+    } catch {
+      // Non-blocking in case context endpoint is unavailable.
+    }
+  };
+
   const submitUserText = async (raw: string) => {
     const text = raw.trim();
     if (!text || !ready || chatLoading) return;
@@ -119,18 +159,12 @@ export function HomeChatPanel({
     onUserMessage?.(userIndex, text);
 
     if (text === HELP_ME_ONBOARD_PROMPT) {
-      const body = formatOnboardingOpeningMessage(inviteFirstName);
       setMessages((prev) => [...prev, userMsg]);
       setChatLoading(true);
       await new Promise((r) => setTimeout(r, 520));
       setMessages((prev) => [
         ...prev,
-        {
-          id: id(),
-          role: "assistant",
-          text: body,
-          richOnboarding: true,
-        },
+        { id: id(), role: "assistant", text: "", richOnboarding: true },
       ]);
       setChatLoading(false);
       return;
@@ -152,6 +186,12 @@ export function HomeChatPanel({
         ...prev,
         { id: id(), role: "assistant", text: message },
       ]);
+      if (shouldShowOnboardingBlock(text)) {
+        setMessages((prev) => [
+          ...prev,
+          { id: id(), role: "assistant", text: "", richOnboarding: true },
+        ]);
+      }
     } catch (e) {
       setChatError((e as Error).message);
       setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
@@ -164,6 +204,17 @@ export function HomeChatPanel({
   const send = () => {
     void submitUserText(draft);
   };
+
+  const profileSummary = useMemo(
+    () => ({
+      name: user ? `${user.firstName} ${user.lastName}`.trim() : "Not signed in",
+      email: user?.email ?? inviteProfile?.email ?? "Unknown",
+      inviteToken: inviteToken ?? null,
+      inviteDescription: inviteProfile?.description ?? null,
+      inviteResearchSummary: inviteProfile?.researchSummary ?? null,
+    }),
+    [user, inviteProfile, inviteToken],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden font-mono border border-border bg-background">
@@ -180,11 +231,21 @@ export function HomeChatPanel({
             Scientific Revolution
           </button>
         </div>
-        <Link href="/dashboard">
-          <a className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors">
-            Dashboard
-          </a>
-        </Link>
+        {user ? (
+          <Link href="/dashboard">
+            <a className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors">
+              Dashboard
+            </a>
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => addAuthCard("login")}
+            className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+          >
+            Login
+          </button>
+        )}
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-6 space-y-10 custom-scrollbar">
@@ -237,7 +298,51 @@ export function HomeChatPanel({
                   <OnboardingIntro
                     inviteFirstName={inviteFirstName}
                     inviteToken={inviteToken}
+                    onContinueInterview={() => {
+                      inputRef.current?.focus();
+                      toast({
+                        title: "Interview mode",
+                        description: "Continue by typing in chat.",
+                      });
+                    }}
+                    onSkipOnboarding={() => addAuthCard("register")}
                   />
+                </div>
+              );
+            }
+            if (m.authCardMode) {
+              return (
+                <div key={m.id} className="text-left pr-8">
+                  <OnboardingAuthCard
+                    mode={m.authCardMode}
+                    inviteProfile={inviteProfile}
+                    onLogin={async (email, password) => {
+                      await login(email, password);
+                      await finishAuthFlow();
+                    }}
+                    onRegister={async (payload) => {
+                      await register(payload);
+                      await finishAuthFlow();
+                    }}
+                  />
+                </div>
+              );
+            }
+            if (m.postAuthActions) {
+              return (
+                <div key={m.id} className="text-left pr-8 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.focus()}
+                    className="border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+                  >
+                    Continue onboarding
+                  </button>
+                  <Link href="/dashboard">
+                    <a className="border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors">
+                      Go to dashboard
+                    </a>
+                  </Link>
                 </div>
               );
             }
@@ -282,6 +387,7 @@ export function HomeChatPanel({
             Message
           </label>
           <textarea
+            ref={inputRef}
             id="home-chat-input"
             rows={1}
             value={draft}
@@ -315,6 +421,11 @@ export function HomeChatPanel({
           <span className="opacity-40">Scientific Revolution · Sail v0</span>
         </div>
       </div>
+      <ProfileSummaryDrawer
+        open={profileDrawerOpen}
+        onOpenChange={setProfileDrawerOpen}
+        profile={profileSummary}
+      />
     </div>
   );
 }

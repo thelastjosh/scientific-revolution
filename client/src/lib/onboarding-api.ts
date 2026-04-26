@@ -1,6 +1,13 @@
 export type OnboardingBootstrap = {
   openingMessage: string;
   inviteFirstName: string | null;
+  inviteProfile: {
+    token: string;
+    firstName: string | null;
+    email: string | null;
+    description: string | null;
+    researchSummary: string | null;
+  } | null;
 };
 
 export async function fetchOnboardingBootstrap(
@@ -32,4 +39,46 @@ export async function postOnboardingChat(body: {
     );
   }
   return { message: data.message ?? "" };
+}
+
+export type OnboardingContext = {
+  persona: "invite_link" | "invite_no_link" | "general";
+  inviteToken: string | null;
+  inviteEmail: string | null;
+  onboardingStep: string;
+  summary: string | null;
+  updatedAt: string;
+};
+
+export async function fetchOnboardingContext(): Promise<OnboardingContext | null> {
+  const r = await fetch("/api/onboarding/context", { credentials: "include" });
+  if (r.status === 401) return null;
+  if (!r.ok) {
+    throw new Error(`Onboarding context failed (${r.status})`);
+  }
+  const data = (await r.json()) as { context: OnboardingContext | null };
+  return data.context;
+}
+
+export async function saveOnboardingContext(
+  context: Omit<OnboardingContext, "updatedAt">,
+): Promise<OnboardingContext> {
+  const r = await fetch("/api/onboarding/context", {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(context),
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    context?: OnboardingContext;
+  };
+  if (!r.ok || !data.context) {
+    throw new Error(
+      typeof data.message === "string"
+        ? data.message
+        : `Save onboarding context failed (${r.status})`,
+    );
+  }
+  return data.context;
 }

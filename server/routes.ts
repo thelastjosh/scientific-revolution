@@ -12,6 +12,10 @@ import {
   updateUiExperiment,
 } from "./ui-experiments-service";
 import { registerAuthRoutes } from "./auth-routes";
+import {
+  getOnboardingContextForUser,
+  upsertOnboardingContextForUser,
+} from "./onboarding-context-service";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -28,6 +32,14 @@ const onboardingChatBodySchema = z.object({
       }),
     )
     .min(1),
+});
+
+const onboardingContextBodySchema = z.object({
+  persona: z.enum(["invite_link", "invite_no_link", "general"]),
+  inviteToken: z.string().max(128).nullable(),
+  inviteEmail: z.string().email().nullable(),
+  onboardingStep: z.string().min(1).max(120),
+  summary: z.string().max(5000).nullable(),
 });
 
 function getAdminSecret(): string | undefined {
@@ -67,6 +79,15 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.json({
         openingMessage: openingMessageFromInvite(invite),
         inviteFirstName: invite?.firstName?.trim() ?? null,
+        inviteProfile: invite
+          ? {
+              token: invite.token,
+              firstName: invite.firstName ?? null,
+              email: invite.email ?? null,
+              description: invite.description ?? null,
+              researchSummary: invite.researchSummary ?? null,
+            }
+          : null,
       });
     } catch (e: unknown) {
       console.error("[onboarding/bootstrap]", e);
@@ -95,6 +116,26 @@ export async function registerRoutes(app: Express): Promise<void> {
         message: err.message ?? "Chat request failed",
       });
     }
+  });
+
+  app.get("/api/onboarding/context", (req: Request, res: Response) => {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Sign in required" });
+    }
+    const context = getOnboardingContextForUser(req.userId);
+    res.json({ context });
+  });
+
+  app.put("/api/onboarding/context", (req: Request, res: Response) => {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Sign in required" });
+    }
+    const parsed = onboardingContextBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    const context = upsertOnboardingContextForUser(req.userId, parsed.data);
+    res.json({ context });
   });
 
   app.get("/api/ui-experiments", async (_req: Request, res: Response) => {

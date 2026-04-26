@@ -35,4 +35,17 @@ Roadmap items for Scientific Revolution (Sail). Not exhaustive.
 
 ---
 
+## 3. Post-onboarding task email pipeline
+
+**Goal:** Replace placeholder reassurance copy ("we'll email you with a task later") with a real, reliable follow-up task email pipeline immediately after unified onboarding ships.
+
+**Scope**
+
+- Trigger condition after in-chat auth/onboarding completion.
+- Server-owned task payload generation from onboarding context/profile.
+- Email delivery integration, retry handling, and status tracking.
+- Basic admin visibility into queued/sent/failed follow-up tasks.
+
+---
+
 *Last updated: product backlog scratchpad.*

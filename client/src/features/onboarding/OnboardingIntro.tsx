@@ -21,11 +21,15 @@ type OnboardingIntroProps = {
   inviteFirstName?: string | null;
   /** Current `?invite=` token, if any — keeps the field in sync with the URL */
   inviteToken?: string | null;
+  onContinueInterview?: () => void;
+  onSkipOnboarding?: () => void;
 };
 
 export function OnboardingIntro({
   inviteFirstName,
   inviteToken,
+  onContinueInterview,
+  onSkipOnboarding,
 }: OnboardingIntroProps) {
   const [, navigate] = useLocation();
   const [inviteField, setInviteField] = useState(
@@ -117,12 +121,39 @@ export function OnboardingIntro({
         </li>
 
         <li>
-          <p
-            className="text-muted-foreground font-normal"
-            style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
-          >
-            Interview — just continue the chat.
-          </p>
+          <div className="space-y-2">
+            <p
+              className="text-muted-foreground font-normal"
+              style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
+            >
+              Continue interview in chat
+            </p>
+            <button
+              type="button"
+              onClick={onContinueInterview}
+              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+            >
+              Continue interview
+            </button>
+          </div>
+        </li>
+
+        <li>
+          <div className="space-y-2">
+            <p
+              className="text-muted-foreground font-normal"
+              style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
+            >
+              Skip onboarding / create an account
+            </p>
+            <button
+              type="button"
+              onClick={onSkipOnboarding}
+              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+            >
+              Create account
+            </button>
+          </div>
         </li>
       </ul>
     </div>
