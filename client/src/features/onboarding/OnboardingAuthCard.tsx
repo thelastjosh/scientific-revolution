@@ -15,6 +15,8 @@ type InviteProfile = {
 type OnboardingAuthCardProps = {
   mode?: "login" | "register";
   inviteProfile: InviteProfile;
+  /** When opening Create account (e.g. from link-derived profile), prefill register name fields. */
+  registerNamePrefill?: { firstName: string; lastName: string } | null;
   onLogin: (email: string, password: string) => Promise<void>;
   onRegister: (payload: {
     firstName: string;
@@ -27,6 +29,7 @@ type OnboardingAuthCardProps = {
 export function OnboardingAuthCard({
   mode = "register",
   inviteProfile,
+  registerNamePrefill = null,
   onLogin,
   onRegister,
 }: OnboardingAuthCardProps) {
@@ -37,8 +40,12 @@ export function OnboardingAuthCard({
   const [loginEmail, setLoginEmail] = useState(inviteProfile?.email ?? "");
   const [loginPassword, setLoginPassword] = useState("");
 
-  const [firstName, setFirstName] = useState(inviteProfile?.firstName ?? "");
-  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState(
+    () => registerNamePrefill?.firstName ?? inviteProfile?.firstName ?? "",
+  );
+  const [lastName, setLastName] = useState(
+    () => registerNamePrefill?.lastName ?? "",
+  );
   const [registerEmail, setRegisterEmail] = useState(inviteProfile?.email ?? "");
   const [registerPassword, setRegisterPassword] = useState("");
 

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { HOME_OPENING_MESSAGE } from "@shared/onboarding-opening";
+import { pickHomeOpeningMessage } from "@shared/onboarding-opening";
 import type { OnboardingInvite } from "@shared/schema";
 import { onboardingInvites } from "@shared/schema";
 import { getDb } from "./db";
@@ -38,5 +38,5 @@ export function memRegisterInvite(invite: OnboardingInvite): void {
 }
 
 export function openingMessageFromInvite(_invite: OnboardingInvite | null): string {
-  return HOME_OPENING_MESSAGE;
+  return pickHomeOpeningMessage();
 }

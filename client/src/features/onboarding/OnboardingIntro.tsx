@@ -23,6 +23,10 @@ type OnboardingIntroProps = {
   inviteToken?: string | null;
   onContinueInterview?: () => void;
   onSkipOnboarding?: () => void;
+  /** Called with a public URL the user pastes (e.g. LinkedIn, personal site) */
+  onAddLink?: (url: string) => void | Promise<void>;
+  /** Server is fetching the URL and building a profile */
+  linkBusy?: boolean;
 };
 
 export function OnboardingIntro({
@@ -30,8 +34,11 @@ export function OnboardingIntro({
   inviteToken,
   onContinueInterview,
   onSkipOnboarding,
+  onAddLink,
+  linkBusy = false,
 }: OnboardingIntroProps) {
   const [, navigate] = useLocation();
+  const [linkField, setLinkField] = useState("");
   const [inviteField, setInviteField] = useState(
     () => inviteToken?.trim() ?? "",
   );
@@ -65,6 +72,30 @@ export function OnboardingIntro({
     e.target.value = "";
   };
 
+  const applyLink = () => {
+    const raw = linkField.trim();
+    if (!raw) {
+      toast({
+        title: "Add a link",
+        description: "Paste a URL (e.g. personal site or LinkedIn).",
+      });
+      return;
+    }
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      // eslint-disable-next-line no-new -- validate URL
+      new URL(normalized);
+    } catch {
+      toast({
+        title: "Invalid link",
+        description: "Could not parse that URL. Try including the domain (e.g. linkedin.com/in/…).",
+      });
+      return;
+    }
+    void onAddLink?.(normalized);
+    setLinkField("");
+  };
+
   return (
     <div className="animate-sr-fade-in space-y-5 text-left pr-8">
       {greeting ? (
@@ -73,10 +104,38 @@ export function OnboardingIntro({
         </p>
       ) : null}
       <p className="text-base font-normal tracking-tight leading-snug break-words text-foreground">
-        SR has three typical ways of onboarding:
+        SR has several ways to onboard and enrich your profile:
       </p>
 
       <ul className="space-y-4 text-left border-l-2 border-border pl-4 ml-0.5">
+        <li className="space-y-2">
+          <p
+            className="text-muted-foreground font-normal"
+            style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
+          >
+            Add a link (e.g. personal website, LinkedIn)
+          </p>
+          <div className="flex flex-wrap items-stretch gap-2 max-w-md">
+            <input
+              type="url"
+              inputMode="url"
+              value={linkField}
+              onChange={(e) => setLinkField(e.target.value)}
+              placeholder="https://…"
+              disabled={linkBusy}
+              className="min-w-[12rem] flex-1 border border-border bg-background px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-foreground disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={applyLink}
+              disabled={linkBusy}
+              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
+            >
+              {linkBusy ? "Fetching…" : "Add"}
+            </button>
+          </div>
+        </li>
+
         <li className="space-y-2">
           <p
             className="text-muted-foreground font-normal"

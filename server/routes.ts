@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
+import { HOME_OPENING_MESSAGE_VARIANTS } from "@shared/onboarding-opening";
 import { uiExperimentVariantSchema } from "@shared/schema";
 import { completeOnboardingReply } from "./onboarding-chat";
 import {
@@ -16,6 +17,7 @@ import {
   getOnboardingContextForUser,
   upsertOnboardingContextForUser,
 } from "./onboarding-context-service";
+import { buildProfileFromPublicUrl } from "./onboarding-link-profile";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -24,6 +26,13 @@ const patchBodySchema = z.object({
 
 const onboardingChatBodySchema = z.object({
   inviteToken: z.string().max(128).nullable().optional(),
+  /** Matches hero A/B on home so the system prompt is aligned with what the user saw. */
+  entryOpeningLine: z
+    .enum([
+      HOME_OPENING_MESSAGE_VARIANTS[0],
+      HOME_OPENING_MESSAGE_VARIANTS[1],
+    ])
+    .optional(),
   messages: z
     .array(
       z.object({
@@ -40,6 +49,10 @@ const onboardingContextBodySchema = z.object({
   inviteEmail: z.string().email().nullable(),
   onboardingStep: z.string().min(1).max(120),
   summary: z.string().max(5000).nullable(),
+});
+
+const profileFromLinkBodySchema = z.object({
+  url: z.string().min(1).max(2000).url(),
 });
 
 function getAdminSecret(): string | undefined {
@@ -76,6 +89,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         typeof req.query.invite === "string" ? req.query.invite : undefined;
       const token = normalizeInviteToken(raw);
       const invite = await getInviteByToken(token);
+      // Must not cache: openingMessage is A/B random; cached responses always repeat one line.
+      res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
       res.json({
         openingMessage: openingMessageFromInvite(invite),
         inviteFirstName: invite?.firstName?.trim() ?? null,
@@ -95,6 +110,22 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.post("/api/onboarding/profile-from-link", async (req: Request, res: Response) => {
+    const parsed = profileFromLinkBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Valid url is required" });
+    }
+    try {
+      const profile = await buildProfileFromPublicUrl(parsed.data.url);
+      res.json({ profile });
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      const msg = err.message ?? "Could not build profile from link";
+      console.error("[onboarding/profile-from-link]", e);
+      res.status(502).json({ message: msg });
+    }
+  });
+
   app.post("/api/onboarding/chat", async (req: Request, res: Response) => {
     const parsed = onboardingChatBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -106,6 +137,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       const message = await completeOnboardingReply(
         invite,
         parsed.data.messages,
+        parsed.data.entryOpeningLine,
       );
       res.json({ message });
     } catch (e: unknown) {

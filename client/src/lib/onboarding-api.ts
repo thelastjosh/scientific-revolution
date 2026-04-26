@@ -1,3 +1,7 @@
+import type { LinkDerivedProfile } from "@shared/link-profile";
+
+export type { LinkDerivedProfile };
+
 export type OnboardingBootstrap = {
   openingMessage: string;
   inviteFirstName: string | null;
@@ -16,7 +20,7 @@ export async function fetchOnboardingBootstrap(
   const q = inviteToken
     ? `?invite=${encodeURIComponent(inviteToken)}`
     : "";
-  const r = await fetch(`/api/onboarding/bootstrap${q}`);
+  const r = await fetch(`/api/onboarding/bootstrap${q}`, { cache: "no-store" });
   if (!r.ok) {
     throw new Error(`Bootstrap failed (${r.status})`);
   }
@@ -25,6 +29,8 @@ export async function fetchOnboardingBootstrap(
 
 export async function postOnboardingChat(body: {
   inviteToken?: string | null;
+  /** Must match the hero line the user saw (A/B) so the model context stays aligned. */
+  entryOpeningLine?: string | null;
   messages: { role: "user" | "assistant"; content: string }[];
 }): Promise<{ message: string }> {
   const r = await fetch("/api/onboarding/chat", {
@@ -39,6 +45,24 @@ export async function postOnboardingChat(body: {
     );
   }
   return { message: data.message ?? "" };
+}
+
+export async function postProfileFromLink(url: string): Promise<LinkDerivedProfile> {
+  const r = await fetch("/api/onboarding/profile-from-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    profile?: LinkDerivedProfile;
+  };
+  if (!r.ok || !data.profile) {
+    throw new Error(
+      typeof data.message === "string" ? data.message : `Profile from link failed (${r.status})`,
+    );
+  }
+  return data.profile;
 }
 
 export type OnboardingContext = {

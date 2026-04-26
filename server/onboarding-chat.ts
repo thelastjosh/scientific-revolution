@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import type { OnboardingInvite } from "@shared/schema";
+import {
+  EDIT_PROFILE_AGENT_REPLY,
+  isHomeOpeningMessageVariant,
+  isUserEditProfileMessage,
+} from "@shared/onboarding-opening";
 import { openingMessageFromInvite } from "./onboarding-invite-service";
 import {
   assembleOnboardingSystemPrompt,
@@ -47,7 +52,26 @@ export function hasUserMessage(messages: ChatTurn[]): boolean {
 export async function completeOnboardingReply(
   invite: OnboardingInvite | null,
   messages: ChatTurn[],
+  entryOpeningLine?: string | null,
 ): Promise<string> {
+  if (!hasUserMessage(messages)) {
+    const err = new Error("At least one user message is required");
+    (err as { status?: number }).status = 400;
+    throw err;
+  }
+
+  let lastUser: ChatTurn | undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role === "user" && (m.content?.trim() ?? "")) {
+      lastUser = m;
+      break;
+    }
+  }
+  if (lastUser && isUserEditProfileMessage(lastUser.content)) {
+    return EDIT_PROFILE_AGENT_REPLY;
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     const err = new Error("ANTHROPIC_API_KEY is not configured");
@@ -55,13 +79,10 @@ export async function completeOnboardingReply(
     throw err;
   }
 
-  if (!hasUserMessage(messages)) {
-    const err = new Error("At least one user message is required");
-    (err as { status?: number }).status = 400;
-    throw err;
-  }
-
-  const openingLine = openingMessageFromInvite(invite);
+  const openingLine =
+    entryOpeningLine && isHomeOpeningMessageVariant(entryOpeningLine)
+      ? entryOpeningLine
+      : openingMessageFromInvite(invite);
   const variant = resolveOnboardingPromptVariant();
   const system = assembleOnboardingSystemPrompt(invite, openingLine, variant);
   const anthropicMessages = toAnthropicMessages(messages);

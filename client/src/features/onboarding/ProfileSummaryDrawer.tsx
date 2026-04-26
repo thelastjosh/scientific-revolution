@@ -9,6 +9,8 @@ type ProfileSummaryDrawerProps = {
     inviteToken: string | null;
     inviteDescription: string | null;
     inviteResearchSummary: string | null;
+    headline?: string | null;
+    sourcePageUrl?: string | null;
   };
 };
 
@@ -29,6 +31,24 @@ export function ProfileSummaryDrawer({
           <p>
             <span className="text-muted-foreground">Name:</span> {profile.name}
           </p>
+          {profile.headline ? (
+            <p>
+              <span className="text-muted-foreground">Headline:</span> {profile.headline}
+            </p>
+          ) : null}
+          {profile.sourcePageUrl ? (
+            <p className="text-xs break-all">
+              <span className="text-muted-foreground">Source:</span>{" "}
+              <a
+                href={profile.sourcePageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                {profile.sourcePageUrl}
+              </a>
+            </p>
+          ) : null}
           <p>
             <span className="text-muted-foreground">Email:</span> {profile.email}
           </p>
