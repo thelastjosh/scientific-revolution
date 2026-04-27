@@ -1,29 +1,6 @@
-export interface HistoryItem {
-  id: string;
-  shortWhy: string;
-  title: string;
-  result: string;
-  date: string;
-  contributorId?: string;
-}
+import type { Task } from "@shared/network-feed";
 
-export interface Task {
-  id: string;
-  shortWhy: string;
-  title: string;
-  description: string;
-  rationale: string;
-  evaluationLoop: string;
-  motivationScore: number; // Positive means adding motivation, negative means reducing motivation
-  timeEstimate: string;
-  status: 'available' | 'in-progress' | 'completed';
-  history: HistoryItem[];
-  community: 'public-ai' | 'unicef' | 'general' | 'developer-dao';
-  githubLink?: string;
-  workspaceType?: 'default' | 'github-import' | 'event' | 'advisory';
-  type?: 'standard' | 'event';
-  eventDate?: string;
-}
+export type { HistoryItem, Task } from "@shared/network-feed";
 
 export const MOCK_TASKS: Task[] = [
   {
@@ -250,18 +227,9 @@ export const MOCK_USER = {
   motivation: 75 // Starting motivation score
 };
 
-export interface Epoch {
-  id: string;
-  name: string;
-  description: string;
-  progress: number; // 0-100
-  target: number; // total units needed
-  current: number; // current units
-  deadline: string;
-  status: 'nominal' | 'degraded' | 'critical';
-}
+export type { Epoch } from "@shared/network-feed";
 
-export const MOCK_EPOCH: Epoch = {
+export const MOCK_EPOCH: import("@shared/network-feed").Epoch = {
   id: 'OP-7721',
   name: 'Sector 7 Integrity',
   description: 'Restore data fidelity across all primary sensor arrays in the industrial district.',
@@ -272,18 +240,9 @@ export const MOCK_EPOCH: Epoch = {
   status: 'nominal'
 };
 
-export interface Project {
-  id: string;
-  shortWhy: string;
-  title: string;
-  description: string;
-  motivationScore: number;
-  deadline: string;
-  status: 'open' | 'claimed';
-  claimedBy?: string;
-}
+export type { Project } from "@shared/network-feed";
 
-export const MOCK_PROJECTS: Project[] = [
+export const MOCK_PROJECTS: import("@shared/network-feed").Project[] = [
   {
     id: 'CMD-001',
     shortWhy: 'Process new sensor data',

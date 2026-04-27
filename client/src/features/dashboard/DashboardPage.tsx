@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MOCK_TASKS, MOCK_USER, MOCK_PROJECTS, type Task } from "@/lib/mock-data";
+import { MOCK_EPOCH, MOCK_PROJECTS, MOCK_TASKS, type Task } from "@/lib/mock-data";
+import { fetchDashboard, type DashboardProfile } from "@/lib/dashboard-api";
+import type { Epoch, Project } from "@shared/network-feed";
 import { Link, useSearch } from "wouter";
 import { ArrowLeft, Info, CheckCircle, Clock, AlertTriangle, GitCommit, FileText, User, X, Crown, Github, Terminal, Database, Upload, Globe, Search, ArrowRight, Shuffle, MessageSquare, Calendar, Plug, UserPlus, Network, LogIn, Activity, Download, Award } from "lucide-react";
 import {
@@ -40,6 +42,12 @@ import profile3 from "@/assets/images/profile-3.png";
 export default function Dashboard() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [networkEpoch, setNetworkEpoch] = useState<Epoch | null>(null);
+  const [dbProfile, setDbProfile] = useState<DashboardProfile | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardReady, setDashboardReady] = useState(false);
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const communityFilter = searchParams.get("community");
@@ -74,6 +82,35 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setDashboardReady(false);
+    setDashboardError(null);
+    void (async () => {
+      try {
+        const d = await fetchDashboard();
+        if (cancelled) return;
+        setTasks(d.tasks);
+        setProjects(d.projects);
+        setNetworkEpoch(d.epoch);
+        setDbProfile(d.profile);
+        setDashboardError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setDashboardError((e as Error).message);
+        setTasks(MOCK_TASKS);
+        setProjects(MOCK_PROJECTS);
+        setNetworkEpoch(MOCK_EPOCH);
+        setDbProfile(null);
+      } finally {
+        if (!cancelled) setDashboardReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleAddGoal = () => {
     if (intent.trim()) {
       setGoals([{ id: Date.now().toString(), text: intent }, ...goals]);
@@ -97,9 +134,11 @@ export default function Dashboard() {
     setIntent("");
   };
 
-  const filteredTasks = MOCK_TASKS.filter(t => {
+  const filteredTasks = tasks.filter((t) => {
     const isNotCompleted = !completedTasks.includes(t.id);
-    const matchesCommunity = communityFilter ? t.community === communityFilter : true;
+    const matchesCommunity = communityFilter
+      ? t.community === communityFilter
+      : true;
     return isNotCompleted && matchesCommunity;
   });
 
@@ -276,7 +315,7 @@ export default function Dashboard() {
                     </SheetHeader>
                  </div>
                  <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    {MOCK_TASKS.filter(t => t.type === 'event').map(event => (
+                    {tasks.filter((t) => t.type === "event").map((event) => (
                       <div key={event.id} className="border border-border p-4 hover:bg-secondary/20 transition-colors">
                         <div className="flex justify-between items-start mb-2">
                           <span className="text-[10px] font-bold bg-black text-white dark:bg-white dark:text-black px-2 py-1">
@@ -304,7 +343,7 @@ export default function Dashboard() {
                         </button>
                       </div>
                     ))}
-                    {MOCK_TASKS.filter(t => t.type === 'event').length === 0 && (
+                    {tasks.filter((t) => t.type === "event").length === 0 && (
                       <div className="text-sm text-muted-foreground text-center py-8">
                         No upcoming events scheduled.
                       </div>
@@ -323,6 +362,32 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {!dashboardReady ? (
+        <div className="border-b border-border bg-secondary/20 px-4 py-2 text-center text-xs uppercase tracking-widest text-muted-foreground">
+          Loading network data…
+        </div>
+      ) : null}
+      {dashboardError ? (
+        <div className="border-b border-dashed border-amber-500/50 bg-amber-500/10 px-4 py-2 text-xs text-center text-amber-950 dark:text-amber-100 max-w-6xl mx-auto">
+          {dashboardError} — showing embedded demo data until the API is available.
+        </div>
+      ) : null}
+      {dbProfile && dashboardReady && !dashboardError ? (
+        <div className="border-b border-border bg-card/40 px-4 py-2 max-w-6xl mx-auto flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            <span className="uppercase tracking-widest text-[10px]">Signed in as</span>{" "}
+            <span className="text-foreground font-mono">
+              {dbProfile.firstName} {dbProfile.lastName}
+            </span>
+          </span>
+          <span>Reputation {dbProfile.reputation.toFixed(1)}</span>
+          <span>Motivation {dbProfile.motivation}</span>
+          {dbProfile.bio ? (
+            <span className="max-w-xl line-clamp-2">{dbProfile.bio}</span>
+          ) : null}
+        </div>
+      ) : null}
 
       <main className="max-w-6xl mx-auto p-4 md:p-8">
         {onboardingContext ? (
@@ -348,8 +413,15 @@ export default function Dashboard() {
                         <img src={profile1} alt="Profile" className="w-full h-full object-cover filter grayscale contrast-125" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold uppercase tracking-tighter">YOU (SR-NODE-881)</h2>
-                        <div className="text-xs text-muted-foreground uppercase mt-1">Distributed Systems Engineer • Level 3 Clearance</div>
+                        <h2 className="text-xl font-bold uppercase tracking-tighter">
+                          {dbProfile
+                            ? `${dbProfile.firstName} ${dbProfile.lastName}`.toUpperCase()
+                            : "YOU (SR-NODE-881)"}
+                        </h2>
+                        <div className="text-xs text-muted-foreground uppercase mt-1">
+                          {dbProfile?.bio ||
+                            "Distributed Systems Engineer · Level 3 Clearance"}
+                        </div>
                       </div>
                     </div>
                     
@@ -1082,7 +1154,7 @@ export default function Dashboard() {
 
         {!activeTask && (
           <FeatureGate flagKey="dashboard.global_status">
-            <GlobalStatusBoard />
+            <GlobalStatusBoard epoch={networkEpoch} />
           </FeatureGate>
         )}
 
@@ -1095,7 +1167,7 @@ export default function Dashboard() {
             </div>
             
             <div className="grid md:grid-cols-2 gap-4">
-               {MOCK_PROJECTS.map((project) => (
+               {projects.map((project) => (
                  <div key={project.id} className={`border p-6 relative ${project.status === 'claimed' ? 'border-dashed border-muted-foreground/40 bg-secondary/10 opacity-70' : 'border-foreground bg-card'}`}>
                     <div className="flex justify-between items-start mb-4">
                        <span className="text-xs font-bold bg-black text-white px-2 py-1 dark:bg-white dark:text-black">

@@ -1,4 +1,5 @@
 import { MOCK_EPOCH } from "@/lib/mock-data";
+import type { Epoch } from "@shared/network-feed";
 import { motion } from "framer-motion";
 import { Activity, Target, Clock, Info } from "lucide-react";
 import {
@@ -7,8 +8,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function GlobalStatusBoard() {
-  const { name, description, progress, target, current, deadline, status, id } = MOCK_EPOCH;
+type GlobalStatusBoardProps = {
+  /** When omitted, uses demo epoch from mock-data (dev / missing DB). */
+  epoch?: Epoch | null;
+};
+
+export function GlobalStatusBoard({ epoch }: GlobalStatusBoardProps) {
+  const e = epoch ?? MOCK_EPOCH;
+  const { name, description, progress, target, current, deadline, status, id } = e;
 
   const statusColor = 
     status === 'nominal' ? 'text-green-500' :

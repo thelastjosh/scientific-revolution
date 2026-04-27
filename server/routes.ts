@@ -18,6 +18,9 @@ import {
   upsertOnboardingContextForUser,
 } from "./onboarding-context-service";
 import { buildProfileFromPublicUrl } from "./onboarding-link-profile";
+import { getDashboardBundle } from "./dashboard-service";
+import { getDb } from "./db";
+import { storage } from "./storage";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -82,6 +85,30 @@ function assertAdmin(req: Request): void {
 
 export async function registerRoutes(app: Express): Promise<void> {
   registerAuthRoutes(app);
+
+  app.get("/api/dashboard", async (req: Request, res: Response) => {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Sign in required" });
+    }
+    if (!getDb()) {
+      return res.status(503).json({
+        message:
+          "Database not configured. Set DATABASE_URL, run npm run db:migrate, then npm run db:seed.",
+      });
+    }
+    try {
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      const data = await getDashboardBundle(user);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json(data);
+    } catch (e: unknown) {
+      console.error("[api/dashboard]", e);
+      res.status(500).json({ message: "Failed to load dashboard" });
+    }
+  });
 
   app.get("/api/onboarding/bootstrap", async (req: Request, res: Response) => {
     try {
