@@ -1,5 +1,21 @@
 import mammoth from "mammoth";
 
+let canvasPolyfillReady = false;
+
+async function ensurePdfCanvasPolyfills(): Promise<void> {
+  if (canvasPolyfillReady) return;
+  const canvasMod = await import("@napi-rs/canvas");
+  const g = globalThis as {
+    DOMMatrix?: unknown;
+    ImageData?: unknown;
+    Path2D?: unknown;
+  };
+  if (!g.DOMMatrix && "DOMMatrix" in canvasMod) g.DOMMatrix = canvasMod.DOMMatrix;
+  if (!g.ImageData && "ImageData" in canvasMod) g.ImageData = canvasMod.ImageData;
+  if (!g.Path2D && "Path2D" in canvasMod) g.Path2D = canvasMod.Path2D;
+  canvasPolyfillReady = true;
+}
+
 function summarizeText(text: string): string {
   const compact = text.replace(/\s+/g, " ").trim();
   if (!compact) return "No readable text could be extracted from this CV.";
@@ -22,6 +38,7 @@ export async function extractCvText(input: {
     fileNameLower.endsWith(".pdf")
   ) {
     try {
+      await ensurePdfCanvasPolyfills();
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: buffer });
       const parsed = await parser.getText();
@@ -29,7 +46,7 @@ export async function extractCvText(input: {
     } catch (error) {
       console.warn("[onboarding-cv] PDF parsing unavailable in runtime", error);
       throw new Error(
-        "PDF parsing is unavailable in this runtime. Please upload DOCX or TXT, or enable PDF runtime dependencies."
+        "PDF parsing is unavailable in this runtime. Please upload DOCX or TXT, or enable PDF runtime dependencies (@napi-rs/canvas)."
       );
     }
   } else if (
