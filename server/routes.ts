@@ -6,6 +6,7 @@ import {
   adminEvents,
   channelCredentials,
   networkTasks,
+  organizations,
   postTaskSurveys,
   uiExperimentVariantSchema,
   userContextEntries,
@@ -37,6 +38,15 @@ import {
   sendWorkspaceMessage,
 } from "./workspace-chat-service";
 import { isAdminUser } from "./admin-access";
+import {
+  createInvite,
+  evaluateInviteValidity,
+  listInvitesForCreator,
+  revokeInvite,
+} from "./invite-lifecycle-service";
+import { applyInviteContextToUser } from "./invite-application-service";
+import { sendInviteEmail, sendOnboardingFollowUpEmail } from "./email/onboarding-email-service";
+import { extractCvText } from "./onboarding-cv-service";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -84,6 +94,25 @@ const graduateBodySchema = z.object({
     )
     .default([]),
   activeIntent: z.string().max(200).nullable().optional(),
+  inviteToken: z.string().max(128).nullable().optional(),
+});
+
+const inviteCreateSchema = z.object({
+  firstName: z.string().trim().min(1).max(120).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  researchSummary: z.string().max(5000).nullable().optional(),
+  organizationId: z.string().max(64).nullable().optional(),
+  inviterRelationshipLabel: z.string().max(128).nullable().optional(),
+  inviterContextSummary: z.string().max(5000).nullable().optional(),
+  maxUses: z.number().int().min(1).max(100000).nullable().optional(),
+  expiresAtIso: z.string().datetime().nullable().optional(),
+});
+
+const cvExtractBodySchema = z.object({
+  filename: z.string().min(1).max(300),
+  mimeType: z.string().min(1).max(200),
+  contentBase64: z.string().min(1).max(30_000_000),
 });
 
 const workspaceChatBodySchema = z.object({
@@ -136,6 +165,13 @@ async function assertAdmin(req: Request): Promise<void> {
   }
 }
 
+function toIsoOrNull(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  return null;
+}
+
 export async function registerRoutes(app: Express): Promise<void> {
   registerAuthRoutes(app);
 
@@ -175,6 +211,23 @@ export async function registerRoutes(app: Express): Promise<void> {
         onboardingMessages: parsed.data.messages,
         activeIntent: parsed.data.activeIntent ?? null,
       });
+      const user = await storage.getUser(req.userId);
+      if (parsed.data.inviteToken && user) {
+        await applyInviteContextToUser({
+          inviteToken: parsed.data.inviteToken,
+          userId: user.id,
+          userEmail: user.email,
+          onboardingStep: "workspace_ready",
+          sessionId: out.workspaceSessionId,
+        });
+      }
+      if (user) {
+        await sendOnboardingFollowUpEmail({
+          userId: user.id,
+          recipientEmail: user.email,
+          recipientFirstName: user.firstName,
+        });
+      }
       res.json(out);
     } catch (e: unknown) {
       console.error("[onboarding/graduate]", e);
@@ -188,14 +241,24 @@ export async function registerRoutes(app: Express): Promise<void> {
         typeof req.query.invite === "string" ? req.query.invite : undefined;
       const token = normalizeInviteToken(raw);
       const invite = await getInviteByToken(token);
+      const inviteValidity = evaluateInviteValidity(invite);
       // Must not cache: openingMessage is A/B random; cached responses always repeat one line.
       res.setHeader("Cache-Control", "private, no-store, no-cache, must-revalidate");
       res.json({
         openingMessage: openingMessageFromInvite(invite),
+        inviteValidity,
         inviteFirstName: invite?.firstName?.trim() ?? null,
         inviteProfile: invite
           ? {
               token: invite.token,
+              creatorUserId: invite.creatorUserId ?? null,
+              organizationId: invite.organizationId ?? null,
+              inviterRelationshipLabel: invite.inviterRelationshipLabel ?? null,
+              inviterContextSummary: invite.inviterContextSummary ?? null,
+              maxUses: invite.maxUses ?? null,
+              useCount: invite.useCount ?? 0,
+              expiresAt: invite.expiresAt?.toISOString() ?? null,
+              revokedAt: invite.revokedAt?.toISOString() ?? null,
               firstName: invite.firstName ?? null,
               email: invite.email ?? null,
               description: invite.description ?? null,
@@ -223,6 +286,129 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.error("[onboarding/profile-from-link]", e);
       res.status(502).json({ message: msg });
     }
+  });
+
+  app.post("/api/onboarding/cv/extract", async (req: Request, res: Response) => {
+    const parsed = cvExtractBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    try {
+      const out = await extractCvText(parsed.data);
+      res.json(out);
+    } catch (e) {
+      const msg = (e as Error).message ?? "Failed to extract CV text";
+      res.status(400).json({ message: msg });
+    }
+  });
+
+  app.get("/api/invites/:token/validate", async (req: Request, res: Response) => {
+    const token = normalizeInviteToken(req.params.token);
+    const invite = await getInviteByToken(token);
+    const validity = evaluateInviteValidity(invite);
+    res.json({ validity });
+  });
+
+  app.post("/api/invites", async (req: Request, res: Response) => {
+    if (!req.userId) return res.status(401).json({ message: "Sign in required" });
+    const parsed = inviteCreateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.flatten() });
+    const inviter = await storage.getUser(req.userId);
+    if (!inviter) return res.status(401).json({ message: "User not found" });
+
+    const invite = await createInvite({
+      creatorUserId: req.userId,
+      organizationId: parsed.data.organizationId ?? null,
+      inviterRelationshipLabel: parsed.data.inviterRelationshipLabel ?? null,
+      inviterContextSummary: parsed.data.inviterContextSummary ?? null,
+      firstName: parsed.data.firstName ?? null,
+      email: parsed.data.email ?? null,
+      description: parsed.data.description ?? null,
+      researchSummary: parsed.data.researchSummary ?? null,
+      maxUses: parsed.data.maxUses ?? null,
+      expiresAt: parsed.data.expiresAtIso ? new Date(parsed.data.expiresAtIso) : null,
+    });
+
+    let organizationName: string | null = null;
+    if (invite.organizationId) {
+      const db = getDb();
+      if (db) {
+        const rows = await db
+          .select()
+          .from(organizations)
+          .where(eq(organizations.id, invite.organizationId))
+          .limit(1);
+        organizationName = rows[0]?.name ?? null;
+      }
+    }
+    const emailResult =
+      invite.email
+        ? await sendInviteEmail({
+            inviteToken: invite.token,
+            recipientEmail: invite.email,
+            inviterName: `${inviter.firstName} ${inviter.lastName}`.trim(),
+            organizationName,
+            contextSummary: invite.inviterContextSummary ?? invite.description ?? null,
+            creatorUserId: req.userId,
+          })
+        : null;
+
+    res.status(201).json({
+      invite: {
+        ...invite,
+        expiresAt: toIsoOrNull(invite.expiresAt),
+        revokedAt: toIsoOrNull(invite.revokedAt),
+        lastUsedAt: toIsoOrNull(invite.lastUsedAt),
+        createdAt: toIsoOrNull(invite.createdAt),
+      },
+      emailResult,
+    });
+  });
+
+  app.get("/api/invites/me", async (req: Request, res: Response) => {
+    if (!req.userId) return res.status(401).json({ message: "Sign in required" });
+    const invites = await listInvitesForCreator(req.userId);
+    res.json({
+      invites: invites.map((invite) => ({
+        ...invite,
+        validity: evaluateInviteValidity(invite),
+        expiresAt: toIsoOrNull(invite.expiresAt),
+        revokedAt: toIsoOrNull(invite.revokedAt),
+        lastUsedAt: toIsoOrNull(invite.lastUsedAt),
+        createdAt: toIsoOrNull(invite.createdAt),
+      })),
+    });
+  });
+
+  app.post("/api/invites/:token/revoke", async (req: Request, res: Response) => {
+    if (!req.userId) return res.status(401).json({ message: "Sign in required" });
+    const token = normalizeInviteToken(req.params.token);
+    if (!token) return res.status(400).json({ message: "Invalid invite token" });
+    const revoked = await revokeInvite(token, req.userId);
+    if (!revoked) return res.status(404).json({ message: "Invite not found" });
+    res.json({ ok: true });
+  });
+
+  app.post("/api/onboarding/invite/apply", async (req: Request, res: Response) => {
+    if (!req.userId) return res.status(401).json({ message: "Sign in required" });
+    const parsed = z
+      .object({
+        inviteToken: z.string().max(128),
+        onboardingStep: z.string().max(120).default("invite_applied"),
+        sessionId: z.string().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.flatten() });
+    const user = await storage.getUser(req.userId);
+    if (!user) return res.status(401).json({ message: "User not found" });
+    const out = await applyInviteContextToUser({
+      inviteToken: parsed.data.inviteToken,
+      userId: user.id,
+      userEmail: user.email,
+      onboardingStep: parsed.data.onboardingStep,
+      sessionId: parsed.data.sessionId ?? null,
+    });
+    res.json(out);
   });
 
   app.post("/api/onboarding/chat", async (req: Request, res: Response) => {

@@ -22,12 +22,57 @@ export async function getInviteByToken(
   if (!token) return null;
   const db = getDb();
   if (db) {
-    const rows = await db
-      .select()
-      .from(onboardingInvites)
-      .where(eq(onboardingInvites.token, token))
-      .limit(1);
-    return rows[0] ?? null;
+    try {
+      const rows = await db
+        .select()
+        .from(onboardingInvites)
+        .where(eq(onboardingInvites.token, token))
+        .limit(1);
+      return rows[0] ?? null;
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (
+        err.code === "42703" &&
+        typeof err.message === "string" &&
+        (err.message.includes("creator_user_id") ||
+          err.message.includes("organization_id") ||
+          err.message.includes("inviter_relationship_label") ||
+          err.message.includes("inviter_context_summary") ||
+          err.message.includes("max_uses") ||
+          err.message.includes("use_count") ||
+          err.message.includes("expires_at") ||
+          err.message.includes("revoked_at") ||
+          err.message.includes("last_used_at"))
+      ) {
+        const rows = await db
+          .select({
+            token: onboardingInvites.token,
+            firstName: onboardingInvites.firstName,
+            email: onboardingInvites.email,
+            description: onboardingInvites.description,
+            researchSummary: onboardingInvites.researchSummary,
+            createdAt: onboardingInvites.createdAt,
+          })
+          .from(onboardingInvites)
+          .where(eq(onboardingInvites.token, token))
+          .limit(1);
+        const row = rows[0];
+        if (!row) return null;
+        return {
+          ...row,
+          creatorUserId: null,
+          organizationId: null,
+          inviterRelationshipLabel: null,
+          inviterContextSummary: null,
+          maxUses: null,
+          useCount: 0,
+          expiresAt: null,
+          revokedAt: null,
+          lastUsedAt: null,
+        } as OnboardingInvite;
+      }
+      throw e;
+    }
   }
   return memInvites.get(token) ?? null;
 }

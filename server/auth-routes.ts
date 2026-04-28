@@ -9,6 +9,8 @@ import {
 } from "./auth";
 import { createUserEdge, listEdgesForUser } from "./graph-service";
 import { storage } from "./storage";
+import { applyInviteContextToUser } from "./invite-application-service";
+import { normalizeInviteToken } from "./onboarding-invite-service";
 
 const nameField = z
   .string()
@@ -22,11 +24,13 @@ const registerSchema = z.object({
   password: z.string().min(8).max(128),
   firstName: nameField,
   lastName: nameField,
+  inviteToken: z.string().max(128).nullable().optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  inviteToken: z.string().max(128).nullable().optional(),
 });
 
 const edgeSchema = z.object({
@@ -68,6 +72,15 @@ export function registerAuthRoutes(app: Express): void {
         });
         const token = await signSessionToken(user.id);
         setSessionCookie(res, token);
+        const inviteToken = normalizeInviteToken(parsed.data.inviteToken ?? null);
+        if (inviteToken) {
+          await applyInviteContextToUser({
+            inviteToken,
+            userId: user.id,
+            userEmail: user.email,
+            onboardingStep: "authenticated_register",
+          });
+        }
         res.status(201).json({ user: publicUser(user) });
       } catch (e) {
         next(e);
@@ -95,6 +108,15 @@ export function registerAuthRoutes(app: Express): void {
         }
         const token = await signSessionToken(user.id);
         setSessionCookie(res, token);
+        const inviteToken = normalizeInviteToken(parsed.data.inviteToken ?? null);
+        if (inviteToken) {
+          await applyInviteContextToUser({
+            inviteToken,
+            userId: user.id,
+            userEmail: user.email,
+            onboardingStep: "authenticated_login",
+          });
+        }
         res.json({ user: publicUser(user) });
       } catch (e) {
         next(e);

@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -76,6 +77,15 @@ export type User = typeof users.$inferSelect;
 /** Personalized invite link; token is opaque string in ?invite= */
 export const onboardingInvites = pgTable("onboarding_invites", {
   token: varchar("token", { length: 128 }).primaryKey(),
+  creatorUserId: varchar("creator_user_id").references(() => users.id, { onDelete: "set null" }),
+  organizationId: varchar("organization_id", { length: 64 }),
+  inviterRelationshipLabel: varchar("inviter_relationship_label", { length: 128 }),
+  inviterContextSummary: text("inviter_context_summary"),
+  maxUses: integer("max_uses"),
+  useCount: integer("use_count").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   firstName: text("first_name"),
   email: text("email"),
   description: text("description"),
@@ -85,6 +95,42 @@ export const onboardingInvites = pgTable("onboarding_invites", {
 
 export type OnboardingInvite = typeof onboardingInvites.$inferSelect;
 export type InsertOnboardingInvite = typeof onboardingInvites.$inferInsert;
+
+export const inviteRedemptions = pgTable(
+  "invite_redemptions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    inviteToken: varchar("invite_token", { length: 128 })
+      .notNull()
+      .references(() => onboardingInvites.token, { onDelete: "cascade" }),
+    redeemerUserId: varchar("redeemer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    redeemerEmail: text("redeemer_email"),
+    sessionId: varchar("session_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("invite_redemptions_token_user_uidx").on(t.inviteToken, t.redeemerUserId)],
+);
+
+export type InviteRedemption = typeof inviteRedemptions.$inferSelect;
+
+export const emailEvents = pgTable("email_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  inviteToken: varchar("invite_token", { length: 128 }).references(() => onboardingInvites.token, {
+    onDelete: "set null",
+  }),
+  emailType: varchar("email_type", { length: 64 }).notNull(),
+  recipient: text("recipient").notNull(),
+  subject: text("subject").notNull(),
+  status: varchar("status", { length: 24 }).notNull().default("sent"),
+  errorMessage: text("error_message"),
+  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type EmailEvent = typeof emailEvents.$inferSelect;
 
 /** Partner or movement node (e.g. Public AI, UNICEF). */
 export const organizations = pgTable("organizations", {

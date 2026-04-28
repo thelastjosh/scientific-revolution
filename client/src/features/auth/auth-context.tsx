@@ -19,12 +19,13 @@ type AuthContextValue = {
   user: PublicUser | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, inviteToken?: string | null) => Promise<void>;
   register: (payload: {
     email: string;
     firstName: string;
     lastName: string;
     password: string;
+    inviteToken?: string | null;
   }) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -51,8 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { user: u } = await apiLogin(email, password);
+  const login = useCallback(async (email: string, password: string, inviteToken?: string | null) => {
+    const { user: u } = await apiLogin(email, password, inviteToken);
     setUser(u);
   }, []);
 

@@ -25,8 +25,11 @@ type OnboardingIntroProps = {
   onSkipOnboarding?: () => void;
   /** Called with a public URL the user pastes (e.g. LinkedIn, personal site) */
   onAddLink?: (url: string) => void | Promise<void>;
+  /** Called with a selected CV file */
+  onUploadCv?: (file: File) => void | Promise<void>;
   /** Server is fetching the URL and building a profile */
   linkBusy?: boolean;
+  inviteValidity?: "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found";
 };
 
 export function OnboardingIntro({
@@ -35,7 +38,9 @@ export function OnboardingIntro({
   onContinueInterview,
   onSkipOnboarding,
   onAddLink,
+  onUploadCv,
   linkBusy = false,
+  inviteValidity = "not_found",
 }: OnboardingIntroProps) {
   const [, navigate] = useLocation();
   const [linkField, setLinkField] = useState("");
@@ -66,10 +71,7 @@ export function OnboardingIntro({
   const onCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      toast({
-        title: "CV selected",
-        description: `${f.name} — upload wiring comes next.`,
-      });
+      void onUploadCv?.(f);
     }
     e.target.value = "";
   };
@@ -110,6 +112,14 @@ export function OnboardingIntro({
       </p>
 
       <ul className="space-y-4 text-left border-l-2 border-border pl-4 ml-0.5">
+        {inviteValidity !== "not_found" ? (
+          <li>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              Invite status:{" "}
+              <span className="text-foreground">{inviteValidity.replace("_", " ")}</span>
+            </p>
+          </li>
+        ) : null}
         <li className="space-y-2">
           <p
             className="text-muted-foreground font-normal"

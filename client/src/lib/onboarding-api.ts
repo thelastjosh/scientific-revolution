@@ -4,9 +4,18 @@ export type { LinkDerivedProfile };
 
 export type OnboardingBootstrap = {
   openingMessage: string;
+  inviteValidity?: "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found";
   inviteFirstName: string | null;
   inviteProfile: {
     token: string;
+    creatorUserId?: string | null;
+    organizationId?: string | null;
+    inviterRelationshipLabel?: string | null;
+    inviterContextSummary?: string | null;
+    maxUses?: number | null;
+    useCount?: number;
+    expiresAt?: string | null;
+    revokedAt?: string | null;
     firstName: string | null;
     email: string | null;
     description: string | null;
@@ -110,6 +119,7 @@ export async function saveOnboardingContext(
 export async function graduateOnboardingToWorkspace(input: {
   messages: { role: "user" | "assistant"; content: string }[];
   activeIntent?: string | null;
+  inviteToken?: string | null;
 }): Promise<{ onboardingSessionId: string; workspaceSessionId: string }> {
   const r = await fetch("/api/onboarding/graduate", {
     method: "POST",
@@ -133,4 +143,96 @@ export async function graduateOnboardingToWorkspace(input: {
     onboardingSessionId: data.onboardingSessionId,
     workspaceSessionId: data.workspaceSessionId,
   };
+}
+
+export type InviteValidity = "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found";
+
+export async function validateInvite(token: string): Promise<InviteValidity> {
+  const r = await fetch(`/api/invites/${encodeURIComponent(token)}/validate`, {
+    credentials: "include",
+  });
+  if (!r.ok) throw new Error(`Invite validation failed (${r.status})`);
+  const data = (await r.json()) as { validity: InviteValidity };
+  return data.validity;
+}
+
+export async function createInvite(body: {
+  firstName?: string | null;
+  email?: string | null;
+  description?: string | null;
+  researchSummary?: string | null;
+  organizationId?: string | null;
+  inviterRelationshipLabel?: string | null;
+  inviterContextSummary?: string | null;
+  maxUses?: number | null;
+  expiresAtIso?: string | null;
+}) {
+  const r = await fetch("/api/invites", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await r.json().catch(() => ({}))) as { message?: string };
+  if (!r.ok) throw new Error(data.message ?? `Create invite failed (${r.status})`);
+  return data as {
+    invite: Record<string, unknown> & { token: string };
+    emailResult: { sent: boolean; reason?: string; inviteUrl?: string } | null;
+  };
+}
+
+export async function listMyInvites() {
+  const r = await fetch("/api/invites/me", { credentials: "include" });
+  const data = (await r.json().catch(() => ({}))) as { message?: string; invites?: unknown[] };
+  if (!r.ok || !Array.isArray(data.invites)) {
+    throw new Error(data.message ?? `List invites failed (${r.status})`);
+  }
+  return data.invites as Array<Record<string, unknown> & { token: string; validity: InviteValidity }>;
+}
+
+export async function revokeInvite(token: string): Promise<void> {
+  const r = await fetch(`/api/invites/${encodeURIComponent(token)}/revoke`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = (await r.json().catch(() => ({}))) as { message?: string };
+  if (!r.ok) throw new Error(data.message ?? `Revoke invite failed (${r.status})`);
+}
+
+export async function applyInvite(input: {
+  inviteToken: string;
+  onboardingStep?: string;
+  sessionId?: string | null;
+}) {
+  const r = await fetch("/api/onboarding/invite/apply", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = (await r.json().catch(() => ({}))) as { message?: string };
+  if (!r.ok) throw new Error(data.message ?? `Invite apply failed (${r.status})`);
+  return data;
+}
+
+export async function extractCvFromUpload(input: {
+  filename: string;
+  mimeType: string;
+  contentBase64: string;
+}) {
+  const r = await fetch("/api/onboarding/cv/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    extractedText?: string;
+    summary?: string;
+    manifestAppendBlock?: string;
+  };
+  if (!r.ok || typeof data.summary !== "string" || typeof data.manifestAppendBlock !== "string") {
+    throw new Error(data.message ?? `CV extract failed (${r.status})`);
+  }
+  return data as { extractedText: string; summary: string; manifestAppendBlock: string };
 }

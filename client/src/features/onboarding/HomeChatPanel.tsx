@@ -34,13 +34,20 @@ import { PREVIEW_TITLE_FONT_REM } from "./home-chat-font";
 import { OnboardingIntro } from "./OnboardingIntro";
 import { useAuth } from "@/features/auth/auth-context";
 import {
+  applyInvite,
+  createInvite as createInviteApi,
+  extractCvFromUpload,
   fetchOnboardingBootstrap,
   graduateOnboardingToWorkspace,
   type LinkDerivedProfile,
+  listMyInvites,
   postOnboardingChat,
   postProfileFromLink,
+  revokeInvite as revokeInviteApi,
   saveOnboardingContext,
+  validateInvite,
 } from "@/lib/onboarding-api";
+import { saveProfileDraft } from "@/lib/dashboard-api";
 
 export type ChatMessage = {
   id: string;
@@ -88,11 +95,29 @@ export function HomeChatPanel({
   const [inviteFirstName, setInviteFirstName] = useState<string | null>(null);
   const [inviteProfile, setInviteProfile] = useState<{
     token: string;
+    creatorUserId?: string | null;
+    organizationId?: string | null;
+    inviterRelationshipLabel?: string | null;
+    inviterContextSummary?: string | null;
+    maxUses?: number | null;
+    useCount?: number;
+    expiresAt?: string | null;
+    revokedAt?: string | null;
     firstName: string | null;
     email: string | null;
     description: string | null;
     researchSummary: string | null;
   } | null>(null);
+  const [inviteValidity, setInviteValidity] = useState<
+    "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found"
+  >("not_found");
+  const [cvSummary, setCvSummary] = useState<string | null>(null);
+  const [myInvites, setMyInvites] = useState<
+    Array<Record<string, unknown> & { token: string; validity?: string }>
+  >([]);
+  const [newInviteEmail, setNewInviteEmail] = useState("");
+  const [newInviteOrganizationId, setNewInviteOrganizationId] = useState("");
+  const [newInviteMaxUses, setNewInviteMaxUses] = useState("1");
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [linkDerivedProfile, setLinkDerivedProfile] =
     useState<LinkDerivedProfile | null>(null);
@@ -148,6 +173,12 @@ export function HomeChatPanel({
         if (cancelled) return;
         setInviteFirstName(bootstrap.inviteFirstName);
         setInviteProfile(bootstrap.inviteProfile);
+        if (inviteToken) {
+          const liveValidity = await validateInvite(inviteToken);
+          if (!cancelled) setInviteValidity(liveValidity);
+        } else {
+          setInviteValidity(bootstrap.inviteValidity ?? "not_found");
+        }
         if (isHomeOpeningMessageVariant(bootstrap.openingMessage)) {
           setEntryOpeningLine(bootstrap.openingMessage);
         } else {
@@ -158,6 +189,7 @@ export function HomeChatPanel({
         setBootstrapError("Could not load invite context; chat still works.");
         setInviteFirstName(null);
         setInviteProfile(null);
+        setInviteValidity("not_found");
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -200,6 +232,26 @@ export function HomeChatPanel({
     ]);
     setProfileDrawerOpen(true);
     try {
+      if (linkDerivedProfile || cvSummary) {
+        await saveProfileDraft({
+          bio: (linkDerivedProfile?.summary ?? cvSummary ?? "").slice(0, 6000),
+          profileMarkdown: [
+            linkDerivedProfile
+              ? `## Link-Derived Profile\nSource: ${linkDerivedProfile.sourceUrl}\n\n${linkDerivedProfile.summary}`
+              : null,
+            cvSummary ? `## CV Summary\n${cvSummary}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+          relationshipMarkdown: linkDerivedProfile
+            ? `## Link Source\n- ${linkDerivedProfile.displayName}`
+            : undefined,
+        });
+      }
+    } catch {
+      // Non-blocking: user can still continue.
+    }
+    try {
       await saveOnboardingContext({
         persona: inviteToken ? "invite_link" : "general",
         inviteToken: inviteToken ?? null,
@@ -212,8 +264,12 @@ export function HomeChatPanel({
     }
   };
 
-  const completeLoginToDashboard = async (email: string, password: string) => {
-    await login(email, password);
+  const completeLoginToDashboard = async (
+    email: string,
+    password: string,
+    inviteTokenArg?: string | null,
+  ) => {
+    await login(email, password, inviteTokenArg ?? inviteProfile?.token ?? null);
     setLoginModalOpen(false);
     navigate("/dashboard");
   };
@@ -304,6 +360,13 @@ export function HomeChatPanel({
     try {
       const profile = await postProfileFromLink(url);
       setLinkDerivedProfile(profile);
+      if (user) {
+        await saveProfileDraft({
+          bio: profile.summary.slice(0, 6000),
+          profileMarkdown: `## Link-Derived Profile\nSource: ${profile.sourceUrl}\n\n${profile.summary}`,
+          relationshipMarkdown: `## Link Source\n- ${profile.displayName}`,
+        });
+      }
       setMessages((prev) => [
         ...prev,
         { id: id(), role: "user", text: `I'm adding a link: ${url}` },
@@ -329,6 +392,61 @@ export function HomeChatPanel({
 
   const send = () => {
     void submitUserText(draft);
+  };
+
+  const uploadCvFromFile = async (file: File) => {
+    const bytes = await file.arrayBuffer();
+    let binary = "";
+    const chunk = new Uint8Array(bytes);
+    for (let i = 0; i < chunk.length; i += 1) binary += String.fromCharCode(chunk[i]!);
+    const contentBase64 = btoa(binary);
+    const out = await extractCvFromUpload({
+      filename: file.name,
+      mimeType: file.type || "application/octet-stream",
+      contentBase64,
+    });
+    setCvSummary(out.summary);
+    setMessages((prev) => [
+      ...prev,
+      { id: id(), role: "user", text: `Uploaded CV: ${file.name}` },
+      { id: id(), role: "assistant", text: "CV extracted and ready for profile handoff." },
+    ]);
+  };
+
+  const refreshMyInvites = useCallback(async () => {
+    if (!user) return;
+    try {
+      const invites = await listMyInvites();
+      setMyInvites(invites);
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void refreshMyInvites();
+  }, [refreshMyInvites]);
+
+  const createInviteFromHome = async () => {
+    const created = await createInviteApi({
+      email: newInviteEmail || null,
+      organizationId: newInviteOrganizationId || null,
+      maxUses: Number(newInviteMaxUses) || 1,
+      inviterRelationshipLabel: "inviter",
+      inviterContextSummary: "Invite generated from onboarding home.",
+    });
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: id(),
+        role: "assistant",
+        text: `Invite created: ${created.emailResult?.inviteUrl ?? `/?invite=${created.invite.token}`}`,
+      },
+    ]);
+    setNewInviteEmail("");
+    setNewInviteOrganizationId("");
+    setNewInviteMaxUses("1");
+    await refreshMyInvites();
   };
 
   const profileSummary = useMemo(
@@ -377,7 +495,14 @@ export function HomeChatPanel({
           .filter((m) => m.role === "assistant" || m.role === "user")
           .map((m) => ({ role: m.role, content: m.text })),
         activeIntent: "workspace_transition",
+        inviteToken: inviteProfile?.token ?? inviteToken ?? null,
       });
+      if (inviteProfile?.token) {
+        await applyInvite({
+          inviteToken: inviteProfile.token,
+          onboardingStep: "workspace_ready",
+        });
+      }
       navigate("/dashboard");
     } catch (e) {
       toast({
@@ -486,6 +611,8 @@ export function HomeChatPanel({
                     inviteToken={inviteToken}
                     linkBusy={linkProfileLoading}
                     onAddLink={handleAddLink}
+                    onUploadCv={uploadCvFromFile}
+                    inviteValidity={inviteValidity}
                     onContinueInterview={() => {
                       void submitUserText("Continue interview");
                     }}
@@ -505,7 +632,10 @@ export function HomeChatPanel({
                       await completeLoginToDashboard(email, password);
                     }}
                     onRegister={async (payload) => {
-                      await register(payload);
+                      await register({
+                        ...payload,
+                        inviteToken: inviteProfile?.token ?? null,
+                      });
                       await finishAuthFlow();
                     }}
                   />
@@ -637,10 +767,7 @@ export function HomeChatPanel({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) {
-                toast({
-                  title: "CV attached",
-                  description: `${f.name} — connect upload pipeline to save.`,
-                });
+                void uploadCvFromFile(f);
               }
               e.target.value = "";
             }}
@@ -761,6 +888,60 @@ export function HomeChatPanel({
           <span className="opacity-40">Scientific Revolution · Sail v0</span>
         </div>
       </div>
+      {user ? (
+        <div className="shrink-0 border-t border-border px-4 py-3 bg-card/20 space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Invite links</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input
+              value={newInviteEmail}
+              onChange={(e) => setNewInviteEmail(e.target.value)}
+              placeholder="Invite email (optional)"
+              className="border border-border bg-transparent px-2 py-1.5 text-xs"
+            />
+            <input
+              value={newInviteOrganizationId}
+              onChange={(e) => setNewInviteOrganizationId(e.target.value)}
+              placeholder="Organization ID (e.g. unicef)"
+              className="border border-border bg-transparent px-2 py-1.5 text-xs"
+            />
+            <input
+              value={newInviteMaxUses}
+              onChange={(e) => setNewInviteMaxUses(e.target.value)}
+              placeholder="Max uses"
+              className="border border-border bg-transparent px-2 py-1.5 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => void createInviteFromHome()}
+              className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-secondary/50"
+            >
+              Create invite
+            </button>
+          </div>
+          <div className="space-y-1">
+            {myInvites.slice(-5).map((invite) => (
+              <div
+                key={invite.token}
+                className="flex items-center justify-between text-xs border border-border px-2 py-1.5"
+              >
+                <span className="truncate pr-2">
+                  {String(invite.token)} · {String(invite.validity ?? "unknown")}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await revokeInviteApi(String(invite.token));
+                    await refreshMyInvites();
+                  }}
+                  className="border border-border px-2 py-1 uppercase tracking-wider"
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <ProfileSummaryDrawer
         open={profileDrawerOpen}
         onOpenChange={setProfileDrawerOpen}
@@ -777,7 +958,10 @@ export function HomeChatPanel({
             registerNamePrefill={null}
             onLogin={completeLoginToDashboard}
             onRegister={async (payload) => {
-              await register(payload);
+              await register({
+                ...payload,
+                inviteToken: inviteProfile?.token ?? null,
+              });
               await finishAuthFlow();
             }}
           />

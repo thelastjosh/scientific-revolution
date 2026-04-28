@@ -17,12 +17,13 @@ type OnboardingAuthCardProps = {
   inviteProfile: InviteProfile;
   /** When opening Create account (e.g. from link-derived profile), prefill register name fields. */
   registerNamePrefill?: { firstName: string; lastName: string } | null;
-  onLogin: (email: string, password: string) => Promise<void>;
+  onLogin: (email: string, password: string, inviteToken?: string | null) => Promise<void>;
   onRegister: (payload: {
     firstName: string;
     lastName: string;
     email: string;
     password: string;
+    inviteToken?: string | null;
   }) => Promise<void>;
 };
 
@@ -59,7 +60,7 @@ export function OnboardingAuthCard({
     setSubmitError(null);
     setPending(true);
     try {
-      await onLogin(loginEmail, loginPassword);
+      await onLogin(loginEmail, loginPassword, inviteProfile?.token ?? null);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -77,6 +78,7 @@ export function OnboardingAuthCard({
         lastName,
         email: registerEmail,
         password: registerPassword,
+        inviteToken: inviteProfile?.token ?? null,
       });
     } catch (err) {
       setSubmitError(
