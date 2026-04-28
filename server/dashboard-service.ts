@@ -111,6 +111,49 @@ export async function getDashboardBundle(user: User) {
     throw new Error("Database is not configured");
   }
 
+  const peopleRowsPromise = (async () => {
+    try {
+      return await db
+        .select()
+        .from(users)
+        .orderBy(asc(users.firstName), asc(users.lastName));
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (
+        err.code === "42703" &&
+        typeof err.message === "string" &&
+        (err.message.includes("profile_markdown") ||
+          err.message.includes("relationship_markdown") ||
+          err.message.includes("skill_markdown"))
+      ) {
+        const baseRows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            passwordHash: users.passwordHash,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            bio: users.bio,
+            role: users.role,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .orderBy(asc(users.firstName), asc(users.lastName));
+        return baseRows.map(
+          (row) =>
+            ({
+              ...row,
+              profileMarkdown: null,
+              relationshipMarkdown: null,
+              skillMarkdown: null,
+            }) as User,
+        );
+      }
+      throw e;
+    }
+  })();
+
   const [taskRows, orgRows, peopleRows, workspaceRows] = await Promise.all([
     db
       .select()
@@ -118,10 +161,7 @@ export async function getDashboardBundle(user: User) {
       .where(eq(networkTasks.ownerUserId, user.id))
       .orderBy(asc(networkTasks.createdAt)),
     db.select().from(organizations).orderBy(asc(organizations.name)),
-    db
-      .select()
-      .from(users)
-      .orderBy(asc(users.firstName), asc(users.lastName)),
+    peopleRowsPromise,
     db
       .select()
       .from(chatSessions)
