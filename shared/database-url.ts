@@ -1,9 +1,17 @@
 /**
  * Postgres connection string. Vercel and some Supabase templates use POSTGRES_URL;
- * we accept DATABASE_URL or POSTGRES_URL (DATABASE_URL wins if both are set).
+ * we accept DATABASE_URL or POSTGRES_URL (POSTGRES_URL wins if both are set).
+ * If both are present but point to different DBs, throw a clear error.
  */
 export function getDatabaseUrl(): string | undefined {
-  const raw = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
-  const u = raw?.trim();
-  return u || undefined;
+  const databaseUrl = process.env.DATABASE_URL?.trim() || undefined;
+  const postgresUrl = process.env.POSTGRES_URL?.trim() || undefined;
+
+  if (databaseUrl && postgresUrl && databaseUrl !== postgresUrl) {
+    throw new Error(
+      'Conflicting DB env vars: DATABASE_URL and POSTGRES_URL differ. Use one canonical DB URL (recommended: POSTGRES_URL).',
+    );
+  }
+
+  return postgresUrl ?? databaseUrl;
 }
