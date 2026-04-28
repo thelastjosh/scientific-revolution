@@ -101,9 +101,9 @@ export default function PublicProfile() {
 `}
           />
           <SummaryCard 
-            title="relationships.md" 
+            title="relationship.md" 
             summary={`Network graph mapping connections to peers, affiliated organizations, and mentorship trees.`}
-            content={`# Relationships
+            content={`# Relationship
 
 ## Affiliations
 - Core Network Node

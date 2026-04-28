@@ -33,7 +33,7 @@ export default function Profile() {
 - Proposed new shard distribution mechanism
 `);
 
-  const [relationshipsMarkdown, setRelationshipsMarkdown] = useState<string>(`# Relationships
+  const [relationshipMarkdown, setRelationshipMarkdown] = useState<string>(`# Relationship
 
 ## Peers
 - [[SR-NODE-102]] - Co-authored consensus paper
@@ -165,7 +165,7 @@ export default function Profile() {
           {/* Editor Header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-secondary/30 text-xs">
             <div className="flex items-center gap-4">
-              <span className="font-bold uppercase tracking-wider text-muted-foreground">relationships.md</span>
+              <span className="font-bold uppercase tracking-wider text-muted-foreground">relationship.md</span>
               <button 
                 onClick={() => setShowGraph(!showGraph)}
                 className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest bg-secondary/50 px-2 py-1 hover:bg-foreground hover:text-background transition-colors"
@@ -219,8 +219,8 @@ export default function Profile() {
             </div>
           ) : (
             <textarea
-              value={relationshipsMarkdown}
-              onChange={(e) => setRelationshipsMarkdown(e.target.value)}
+              value={relationshipMarkdown}
+              onChange={(e) => setRelationshipMarkdown(e.target.value)}
               className="w-full h-[300px] bg-transparent p-6 font-mono text-sm resize-none focus:outline-none"
               spellCheck={false}
             />

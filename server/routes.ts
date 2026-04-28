@@ -36,6 +36,7 @@ import {
   graduateOnboardingToWorkspace,
   sendWorkspaceMessage,
 } from "./workspace-chat-service";
+import { isAdminUser } from "./admin-access";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -125,7 +126,7 @@ async function assertAdmin(req: Request): Promise<void> {
     (err as { status?: number }).status = 401;
     throw err;
   }
-  if (user.role !== "admin") {
+  if (!isAdminUser(user)) {
     const err = new Error("Admin role required");
     (err as { status?: number }).status = 403;
     throw err;

@@ -78,7 +78,7 @@ export function HomeChatPanel({
   onResetHome,
 }: HomeChatPanelProps) {
   const [, navigate] = useLocation();
-  const { user, login, register } = useAuth();
+  const { user, login, register, logout } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [ready, setReady] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -404,11 +404,23 @@ export function HomeChatPanel({
           </button>
         </div>
         {user ? (
-          <Link href="/dashboard">
-            <a className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors">
-              Dashboard
-            </a>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard">
+              <a className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors">
+                Dashboard
+              </a>
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate("/");
+              }}
+              className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         ) : (
           <button
             type="button"

@@ -15,6 +15,7 @@ export type DashboardProfile = {
 };
 
 export type DashboardPayload = {
+  isAdmin: boolean;
   profile: DashboardProfile;
   organizations: DashboardOrganization[];
   tasks: Task[];
@@ -37,6 +38,7 @@ export async function fetchDashboard(): Promise<DashboardPayload> {
     );
   }
   if (
+    typeof data.isAdmin !== "boolean" ||
     !data.profile ||
     !Array.isArray(data.tasks) ||
     !Array.isArray(data.people) ||

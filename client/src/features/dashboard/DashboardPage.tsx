@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpCircle, Plus } from "lucide-react";
 import {
@@ -12,10 +13,13 @@ import {
   type DashboardProfile,
 } from "@/lib/dashboard-api";
 import type { Task } from "@shared/network-feed";
+import { useAuth } from "@/features/auth/auth-context";
 
 type Pane = "profile" | "people" | "tasks";
 
 export default function DashboardPage() {
+  const [, navigate] = useLocation();
+  const { logout } = useAuth();
   const queryClient = useQueryClient();
   const [activePane, setActivePane] = useState<Pane>("tasks");
   const [draft, setDraft] = useState("");
@@ -33,6 +37,7 @@ export default function DashboardPage() {
   const people = dashboardQuery.data?.people ?? [];
   const workspaceSession = dashboardQuery.data?.workspaceSession ?? null;
   const messages = dashboardQuery.data?.workspaceMessages ?? [];
+  const isAdmin = dashboardQuery.data?.isAdmin ?? false;
 
   const selectedTask = useMemo(
     () => tasks.find((t) => t.id === selectedTaskId) ?? null,
@@ -163,29 +168,41 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setActivePane("profile")}
-            className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
           >
             Profile
           </button>
           <button
             type="button"
             onClick={() => setActivePane("people")}
-            className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
           >
             People
           </button>
           <button
             type="button"
             onClick={() => setActivePane("tasks")}
-            className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
           >
             Tasks
           </button>
-          <Link href="/admin">
-            <a className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider">
-              Admin
-            </a>
-          </Link>
+          {isAdmin ? (
+            <Link href="/admin">
+              <a className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider">
+                Admin
+              </a>
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+              navigate("/");
+            }}
+            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+          >
+            Logout
+          </button>
         </div>
       </header>
 

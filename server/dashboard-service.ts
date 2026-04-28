@@ -9,6 +9,7 @@ import {
 } from "@shared/schema";
 import type { User } from "@shared/schema";
 import { getDb } from "./db";
+import { isAdminUser } from "./admin-access";
 
 export type DashboardProfile = {
   id: string;
@@ -126,6 +127,7 @@ export async function getDashboardBundle(user: User) {
     .orderBy(asc(chatMessages.createdAt));
 
   return {
+    isAdmin: isAdminUser(user),
     profile: userToProfile(user),
     organizations: orgRows.map(
       (o): OrganizationDto => ({
