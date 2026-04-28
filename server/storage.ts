@@ -8,10 +8,14 @@ export type PublicUser = Omit<User, "passwordHash">;
 
 function remapMissingRoleColumnError(e: unknown): never {
   const err = e as { code?: string; message?: string };
-  if (err.code === "42703" && typeof err.message === "string" && err.message.includes("role")) {
-    throw new Error(
-      'Database schema is out of date (missing users.role). Run "npm run db:migrate".',
-    );
+  if (err.code === "42703" && typeof err.message === "string") {
+    const missingColumn = ["role", "profile_markdown", "relationship_markdown", "skill_markdown"]
+      .find((c) => err.message!.includes(c));
+    if (missingColumn) {
+      throw new Error(
+        `Database schema is out of date (missing users.${missingColumn}). Run "npm run db:migrate".`,
+      );
+    }
   }
   throw e;
 }
