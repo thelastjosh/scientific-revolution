@@ -27,6 +27,10 @@ type OnboardingIntroProps = {
   onAddLink?: (url: string) => void | Promise<void>;
   /** Called with a selected CV file */
   onUploadCv?: (file: File) => void | Promise<void>;
+  cvUploadState?: "idle" | "uploading" | "parsed" | "error";
+  cvFileName?: string | null;
+  cvUploadError?: string | null;
+  cvPreview?: string | null;
   /** Server is fetching the URL and building a profile */
   linkBusy?: boolean;
   inviteValidity?: "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found";
@@ -39,6 +43,10 @@ export function OnboardingIntro({
   onSkipOnboarding,
   onAddLink,
   onUploadCv,
+  cvUploadState = "idle",
+  cvFileName = null,
+  cvUploadError = null,
+  cvPreview = null,
   linkBusy = false,
   inviteValidity = "not_found",
 }: OnboardingIntroProps) {
@@ -162,8 +170,33 @@ export function OnboardingIntro({
               accept=".pdf,.doc,.docx,.txt,.md"
               onChange={onCvChange}
             />
-            Choose file
+            {cvUploadState === "uploading" ? "Uploading…" : "Choose file"}
           </label>
+          {cvFileName ? (
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              File: <span className="text-foreground normal-case tracking-normal">{cvFileName}</span>
+            </p>
+          ) : null}
+          {cvUploadState === "parsed" ? (
+            <p className="text-[10px] uppercase tracking-widest text-foreground">
+              CV parsed, preview below will be applied to profile on account creation.
+            </p>
+          ) : null}
+          {cvUploadState === "error" && cvUploadError ? (
+            <p className="text-[10px] uppercase tracking-widest text-destructive">
+              {cvUploadError}
+            </p>
+          ) : null}
+          {cvPreview ? (
+            <div className="max-w-md border border-border bg-background p-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                CV profile preview
+              </p>
+              <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-mono">
+                {cvPreview}
+              </pre>
+            </div>
+          ) : null}
         </li>
 
         <li className="space-y-2">

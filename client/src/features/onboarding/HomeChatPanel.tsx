@@ -112,6 +112,12 @@ export function HomeChatPanel({
     "valid" | "expired_time" | "exhausted_uses" | "revoked" | "not_found"
   >("not_found");
   const [cvSummary, setCvSummary] = useState<string | null>(null);
+  const [cvManifestPreview, setCvManifestPreview] = useState<string | null>(null);
+  const [cvFileName, setCvFileName] = useState<string | null>(null);
+  const [cvUploadState, setCvUploadState] = useState<
+    "idle" | "uploading" | "parsed" | "error"
+  >("idle");
+  const [cvUploadError, setCvUploadError] = useState<string | null>(null);
   const [myInvites, setMyInvites] = useState<
     Array<Record<string, unknown> & { token: string; validity?: string }>
   >([]);
@@ -395,22 +401,42 @@ export function HomeChatPanel({
   };
 
   const uploadCvFromFile = async (file: File) => {
+    setCvFileName(file.name);
+    setCvUploadState("uploading");
+    setCvUploadError(null);
     const bytes = await file.arrayBuffer();
     let binary = "";
     const chunk = new Uint8Array(bytes);
     for (let i = 0; i < chunk.length; i += 1) binary += String.fromCharCode(chunk[i]!);
     const contentBase64 = btoa(binary);
-    const out = await extractCvFromUpload({
-      filename: file.name,
-      mimeType: file.type || "application/octet-stream",
-      contentBase64,
-    });
-    setCvSummary(out.summary);
-    setMessages((prev) => [
-      ...prev,
-      { id: id(), role: "user", text: `Uploaded CV: ${file.name}` },
-      { id: id(), role: "assistant", text: "CV extracted and ready for profile handoff." },
-    ]);
+    try {
+      const out = await extractCvFromUpload({
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        contentBase64,
+      });
+      setCvSummary(out.summary);
+      setCvManifestPreview(out.manifestAppendBlock);
+      setCvUploadState("parsed");
+      setMessages((prev) => [
+        ...prev,
+        { id: id(), role: "user", text: `Uploaded CV: ${file.name}` },
+        {
+          id: id(),
+          role: "assistant",
+          text: "CV extracted. Review the preview, this will be appended to your profile after account creation.",
+        },
+      ]);
+    } catch (e) {
+      const message = (e as Error).message;
+      setCvUploadState("error");
+      setCvUploadError(message);
+      toast({
+        title: "CV upload failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   const refreshMyInvites = useCallback(async () => {
@@ -612,6 +638,10 @@ export function HomeChatPanel({
                     linkBusy={linkProfileLoading}
                     onAddLink={handleAddLink}
                     onUploadCv={uploadCvFromFile}
+                    cvUploadState={cvUploadState}
+                    cvFileName={cvFileName}
+                    cvUploadError={cvUploadError}
+                    cvPreview={cvManifestPreview}
                     inviteValidity={inviteValidity}
                     onContinueInterview={() => {
                       void submitUserText("Continue interview");
