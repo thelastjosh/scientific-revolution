@@ -17,6 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   HELP_ME_ONBOARD_PROMPT,
   isHomeOpeningMessageVariant,
   pickHomeOpeningMessage,
@@ -92,6 +98,7 @@ export function HomeChatPanel({
     useState<LinkDerivedProfile | null>(null);
   const [linkProfileLoading, setLinkProfileLoading] = useState(false);
   const [graduating, setGraduating] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [entryOpeningLine, setEntryOpeningLine] = useState<HomeOpeningMessageVariant>(
     () => pickHomeOpeningMessage(),
   );
@@ -201,6 +208,12 @@ export function HomeChatPanel({
     } catch {
       // Non-blocking in case context endpoint is unavailable.
     }
+  };
+
+  const completeLoginToDashboard = async (email: string, password: string) => {
+    await login(email, password);
+    setLoginModalOpen(false);
+    navigate("/dashboard");
   };
 
   const submitUserText = async (raw: string) => {
@@ -399,7 +412,7 @@ export function HomeChatPanel({
         ) : (
           <button
             type="button"
-            onClick={() => addAuthCard("login")}
+            onClick={() => setLoginModalOpen(true)}
             className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
           >
             Login
@@ -475,8 +488,7 @@ export function HomeChatPanel({
                     inviteProfile={inviteProfile}
                     registerNamePrefill={m.authRegisterNamePrefill ?? null}
                     onLogin={async (email, password) => {
-                      await login(email, password);
-                      await finishAuthFlow();
+                      await completeLoginToDashboard(email, password);
                     }}
                     onRegister={async (payload) => {
                       await register(payload);
@@ -740,6 +752,23 @@ export function HomeChatPanel({
         onOpenChange={setProfileDrawerOpen}
         profile={profileSummary}
       />
+      <Dialog open={loginModalOpen} onOpenChange={setLoginModalOpen}>
+        <DialogContent className="max-w-md border border-border font-mono">
+          <DialogHeader>
+            <DialogTitle className="text-xs uppercase tracking-widest">Login</DialogTitle>
+          </DialogHeader>
+          <OnboardingAuthCard
+            mode="login"
+            inviteProfile={inviteProfile}
+            registerNamePrefill={null}
+            onLogin={completeLoginToDashboard}
+            onRegister={async (payload) => {
+              await register(payload);
+              await finishAuthFlow();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

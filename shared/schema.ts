@@ -141,7 +141,6 @@ export const networkTasks = pgTable("network_tasks", {
   assigneeUserId: varchar("assignee_user_id")
     .references(() => users.id, { onDelete: "set null" }),
   sourceSessionId: varchar("source_session_id"),
-  shortWhy: text("short_why"),
   title: text("title").notNull(),
   description: text("description").notNull(),
   rawSourceDoc: text("raw_source_doc"),
