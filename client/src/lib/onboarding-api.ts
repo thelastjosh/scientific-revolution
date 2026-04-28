@@ -106,3 +106,31 @@ export async function saveOnboardingContext(
   }
   return data.context;
 }
+
+export async function graduateOnboardingToWorkspace(input: {
+  messages: { role: "user" | "assistant"; content: string }[];
+  activeIntent?: string | null;
+}): Promise<{ onboardingSessionId: string; workspaceSessionId: string }> {
+  const r = await fetch("/api/onboarding/graduate", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    onboardingSessionId?: string;
+    workspaceSessionId?: string;
+  };
+  if (!r.ok || !data.onboardingSessionId || !data.workspaceSessionId) {
+    throw new Error(
+      typeof data.message === "string"
+        ? data.message
+        : `Onboarding graduation failed (${r.status})`,
+    );
+  }
+  return {
+    onboardingSessionId: data.onboardingSessionId,
+    workspaceSessionId: data.workspaceSessionId,
+  };
+}

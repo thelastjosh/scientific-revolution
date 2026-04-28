@@ -1,10 +1,11 @@
-import { asc } from "drizzle-orm";
-import type { Epoch, HistoryItem, Project, Task } from "@shared/network-feed";
+import { asc, eq } from "drizzle-orm";
+import type { Task, WorkspaceChatMessage, WorkspaceSession } from "@shared/network-feed";
 import {
-  networkEpochs,
-  networkProjects,
   networkTasks,
   organizations,
+  users,
+  chatSessions,
+  chatMessages,
 } from "@shared/schema";
 import type { User } from "@shared/schema";
 import { getDb } from "./db";
@@ -15,8 +16,6 @@ export type DashboardProfile = {
   lastName: string;
   email: string;
   bio: string | null;
-  reputation: number;
-  motivation: number;
 };
 
 export type OrganizationDto = {
@@ -26,51 +25,22 @@ export type OrganizationDto = {
 };
 
 function rowToTask(row: typeof networkTasks.$inferSelect): Task {
-  const history = (Array.isArray(row.history) ? row.history : []) as unknown[];
   return {
     id: row.id,
-    shortWhy: row.shortWhy,
     title: row.title,
     description: row.description,
-    rationale: row.rationale,
-    evaluationLoop: row.evaluationLoop,
-    motivationScore: row.motivationScore,
-    timeEstimate: row.timeEstimate,
     status: row.status as Task["status"],
-    history: history as HistoryItem[],
-    community: row.community as Task["community"],
-    githubLink: row.githubLink ?? undefined,
-    workspaceType: (row.workspaceType as Task["workspaceType"]) ?? undefined,
-    type: (row.taskKind as Task["type"]) ?? undefined,
-    eventDate: row.eventDate
-      ? row.eventDate.toISOString()
-      : undefined,
-  };
-}
-
-function rowToProject(row: typeof networkProjects.$inferSelect): Project {
-  return {
-    id: row.id,
-    shortWhy: row.shortWhy,
-    title: row.title,
-    description: row.description,
-    motivationScore: row.motivationScore,
-    deadline: row.deadline,
-    status: row.status as Project["status"],
-    claimedBy: row.claimedBy ?? undefined,
-  };
-}
-
-function rowToEpoch(row: typeof networkEpochs.$inferSelect): Epoch {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    progress: row.progress,
-    target: row.target,
-    current: row.current,
-    deadline: row.deadline,
-    status: row.status as Epoch["status"],
+    organizationId: row.organizationId ?? null,
+    ownerUserId: row.ownerUserId,
+    assigneeUserId: row.assigneeUserId ?? null,
+    sourceSessionId: row.sourceSessionId ?? null,
+    rawSourceDoc: row.rawSourceDoc ?? null,
+    extractedBy: row.extractedBy ?? null,
+    deliveryChannels: row.deliveryChannels ?? [],
+    externalRefs: row.externalRefs ?? [],
+    history: row.history ?? [],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -81,8 +51,31 @@ function userToProfile(u: User): DashboardProfile {
     lastName: u.lastName,
     email: u.email,
     bio: u.bio ?? null,
-    reputation: u.reputation ?? 0,
-    motivation: u.motivation ?? 50,
+  };
+}
+
+function sessionRowToSession(
+  s: typeof chatSessions.$inferSelect,
+): WorkspaceSession {
+  return {
+    id: s.id,
+    type: s.type as WorkspaceSession["type"],
+    title: s.title ?? null,
+    graduatedFromSessionId: s.graduatedFromSessionId ?? null,
+    activeIntent: s.activeIntent ?? null,
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+  };
+}
+
+function messageRowToMessage(
+  m: typeof chatMessages.$inferSelect,
+): WorkspaceChatMessage {
+  return {
+    id: m.id,
+    role: m.role as WorkspaceChatMessage["role"],
+    content: m.content,
+    createdAt: m.createdAt.toISOString(),
   };
 }
 
@@ -95,22 +88,42 @@ export async function getDashboardBundle(user: User) {
     throw new Error("Database is not configured");
   }
 
-  const [taskRows, projectRows, orgRows, epochRows] = await Promise.all([
+  const [taskRows, orgRows, peopleRows, workspaceRows] = await Promise.all([
     db
       .select()
       .from(networkTasks)
+      .where(eq(networkTasks.ownerUserId, user.id))
       .orderBy(asc(networkTasks.createdAt)),
-    db
-      .select()
-      .from(networkProjects)
-      .orderBy(asc(networkProjects.createdAt)),
     db.select().from(organizations).orderBy(asc(organizations.name)),
     db
       .select()
-      .from(networkEpochs)
-      .orderBy(asc(networkEpochs.id))
-      .limit(1),
+      .from(users)
+      .orderBy(asc(users.firstName), asc(users.lastName)),
+    db
+      .select()
+      .from(chatSessions)
+      .where(eq(chatSessions.userId, user.id))
+      .orderBy(asc(chatSessions.createdAt)),
   ]);
+
+  let workspace = workspaceRows.find((r) => r.type === "workspace");
+  if (!workspace) {
+    const inserted = await db
+      .insert(chatSessions)
+      .values({
+        userId: user.id,
+        type: "workspace",
+        title: "Workspace",
+      })
+      .returning();
+    workspace = inserted[0]!;
+  }
+
+  const workspaceMessageRows = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, workspace.id))
+    .orderBy(asc(chatMessages.createdAt));
 
   return {
     profile: userToProfile(user),
@@ -121,8 +134,9 @@ export async function getDashboardBundle(user: User) {
         description: o.description ?? null,
       }),
     ),
+    people: peopleRows.map(userToProfile),
     tasks: taskRows.map(rowToTask),
-    projects: projectRows.map(rowToProject),
-    epoch: epochRows[0] ? rowToEpoch(epochRows[0]) : null,
+    workspaceSession: sessionRowToSession(workspace),
+    workspaceMessages: workspaceMessageRows.map(messageRowToMessage),
   };
 }

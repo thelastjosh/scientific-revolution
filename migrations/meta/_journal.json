@@ -43,6 +43,13 @@
       "when": 1776200000000,
       "tag": "0005_network_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776260000000,
+      "tag": "0006_agentic_workspace",
+      "breakpoints": true
     }
   ]
 }

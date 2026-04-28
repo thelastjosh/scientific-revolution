@@ -1,51 +1,53 @@
 # TODOs
 
-Roadmap items for Scientific Revolution (Sail). Not exhaustive.
+Current backlog after the Pathway A agentic dashboard rebuild.
 
 ---
 
-## 1. Mid-conversation advisor / expert pull-in (real-time)
+## 1. External delivery adapters
 
-**Goal:** During an onboarding or task conversation, invite a human advisor or domain expert without leaving the thread—via **SMS, deep link, or QR**—carrying an **AI-generated summary** of what is being discussed so they can decide in seconds whether to engage.
-
-**Why people actually click**
-
-- **Primary hook:** Make the stake explicit—*without you, this won’t get solved* (or the specific blocked outcome). The summary and CTA should center obligation and impact, not generic “you were mentioned.”
-- **Trust and friction:** Short, scannable summary; clear time ask (e.g. “5 minutes to unblock”); who is asking and why *them*.
-- **Optional layers to explore:**
-  - **Opt-in context:** Let the invitee choose how much thread context they see before accepting (preview vs full).
-  - **Social proof / ties:** Surface relationship to the requester (e.g. mutual org, prior task, inviter vouched)—anything that answers “why me” and “is this legit” fast.
-
-**Product / eng notes (future breakdown)**
-
-- Summary generation pipeline (what to include, redaction, tone).
-- Delivery channels (SMS provider, signed URLs, QR payload).
-- Permissions, audit trail, and rate limits for pulling externals into a thread.
-
----
-
-## 2. Moira — AI meeting agent (Zoom / Google Meet)
-
-**Goal:** An AI agent named **Moira** that can **join Zoom or Google Meet calls**, produce **reliable transcripts**, and (per product spec) support downstream flows—summaries, task linkage, dossier attachments.
-
-**Notes**
-
-- Likely depends on platform APIs, bot/join policies, consent UX, and storage of recordings/transcripts.
-- Align naming and behavior with the brutalist / operational tone of the rest of the product.
-
----
-
-## 3. Post-onboarding task email pipeline
-
-**Goal:** Replace placeholder reassurance copy ("we'll email you with a task later") with a real, reliable follow-up task email pipeline immediately after unified onboarding ships.
+**Goal:** Move from metadata-only channel support to live delivery adapters.
 
 **Scope**
-
-- Trigger condition after in-chat auth/onboarding completion.
-- Server-owned task payload generation from onboarding context/profile.
-- Email delivery integration, retry handling, and status tracking.
-- Basic admin visibility into queued/sent/failed follow-up tasks.
+- Gmail/Outlook send + status webhooks.
+- Slack/Teams DM delivery + thread updates.
+- Retry queue, dead-letter handling, and visibility in admin task pipeline.
 
 ---
 
-*Last updated: product backlog scratchpad.*
+## 2. Provider evaluation document
+
+**Goal:** Complete the OpenClaw/alternatives evaluation before building provider-specific integrations.
+
+**Scope**
+- auth/RBAC fit,
+- data residency + secret handling,
+- retry/queue semantics,
+- observability and operational burden,
+- final recommendation and integration boundaries.
+
+---
+
+## 3. Workspace extraction quality
+
+**Goal:** Improve raw-doc task extraction quality and editing ergonomics.
+
+**Scope**
+- richer extraction heuristics/LLM fallback,
+- confidence/traceability per extracted task,
+- explicit "accept/reject/edit" loops in chat + task pane.
+
+---
+
+## 4. Admin RBAC hardening
+
+**Goal:** Replace shared-secret-only access with role-based authorization and audit policies.
+
+**Scope**
+- role-aware admin route guardrails,
+- scoped permissions for read/write ops,
+- immutable audit event coverage for critical actions.
+
+---
+
+*Last updated: Pathway A rebuild completion.*

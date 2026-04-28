@@ -47,8 +47,7 @@ export class MemStorage implements IStorage {
       firstName: insertUser.firstName,
       lastName: insertUser.lastName,
       bio: null,
-      reputation: 0,
-      motivation: 50,
+      role: "member",
       createdAt: now,
       updatedAt: now,
     };
@@ -86,8 +85,7 @@ export class DbStorage implements IStorage {
         firstName: users.firstName,
         lastName: users.lastName,
         bio: users.bio,
-        reputation: users.reputation,
-        motivation: users.motivation,
+        role: users.role,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })

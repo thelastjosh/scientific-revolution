@@ -29,6 +29,7 @@ import { OnboardingIntro } from "./OnboardingIntro";
 import { useAuth } from "@/features/auth/auth-context";
 import {
   fetchOnboardingBootstrap,
+  graduateOnboardingToWorkspace,
   type LinkDerivedProfile,
   postOnboardingChat,
   postProfileFromLink,
@@ -90,6 +91,7 @@ export function HomeChatPanel({
   const [linkDerivedProfile, setLinkDerivedProfile] =
     useState<LinkDerivedProfile | null>(null);
   const [linkProfileLoading, setLinkProfileLoading] = useState(false);
+  const [graduating, setGraduating] = useState(false);
   const [entryOpeningLine, setEntryOpeningLine] = useState<HomeOpeningMessageVariant>(
     () => pickHomeOpeningMessage(),
   );
@@ -351,6 +353,28 @@ export function HomeChatPanel({
     addAuthCard("register", { firstName, lastName });
   };
 
+  const continueInWorkspace = async () => {
+    if (graduating) return;
+    setGraduating(true);
+    try {
+      await graduateOnboardingToWorkspace({
+        messages: messages
+          .filter((m) => m.role === "assistant" || m.role === "user")
+          .map((m) => ({ role: m.role, content: m.text })),
+        activeIntent: "workspace_transition",
+      });
+      navigate("/dashboard");
+    } catch (e) {
+      toast({
+        title: "Could not continue to workspace",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setGraduating(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden font-mono border border-border bg-background">
       <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between gap-3">
@@ -472,11 +496,16 @@ export function HomeChatPanel({
                   >
                     Continue onboarding
                   </button>
-                  <Link href="/dashboard">
-                    <a className="border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors">
-                      Go to dashboard
-                    </a>
-                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void continueInWorkspace();
+                    }}
+                    className="border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors disabled:opacity-60"
+                    disabled={graduating}
+                  >
+                    {graduating ? "Opening workspace..." : "Continue in workspace"}
+                  </button>
                 </div>
               );
             }
