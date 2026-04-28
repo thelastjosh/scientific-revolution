@@ -383,6 +383,7 @@ export default function DashboardPage() {
 function ProfilePane({
   profile,
   onSave,
+  saveState,
 }: {
   profile: DashboardProfile;
   onSave: (input: {
