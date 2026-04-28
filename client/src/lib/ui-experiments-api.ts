@@ -12,16 +12,20 @@ export async function fetchUiExperiments(): Promise<UiExperiment[]> {
 export async function putUiExperiment(
   key: string,
   body: { enabled?: boolean; variant?: "control" | "variant_b" },
-  adminToken: string,
+  adminToken?: string,
 ): Promise<UiExperiment> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (adminToken) {
+    headers.Authorization = `Bearer ${adminToken}`;
+  }
   const r = await fetch(
     `/api/ui-experiments/${encodeURIComponent(key)}`,
     {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
-      },
+      credentials: "include",
+      headers,
       body: JSON.stringify(body),
     },
   );

@@ -19,6 +19,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TABLE "users" DROP COLUMN IF EXISTS "reputation";
 ALTER TABLE "users" DROP COLUMN IF EXISTS "motivation";
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "role" varchar(24) NOT NULL DEFAULT 'member';
+UPDATE "users" SET "role" = 'admin' WHERE "email" = 'demo@scientific-revolution.test';
 
 ALTER TABLE "network_tasks"
   ADD COLUMN IF NOT EXISTS "owner_user_id" varchar,
@@ -39,12 +40,27 @@ WHERE "owner_user_id" IS NULL;
 ALTER TABLE "network_tasks"
   ALTER COLUMN "owner_user_id" SET NOT NULL;
 
-ALTER TABLE "network_tasks"
-  ADD CONSTRAINT IF NOT EXISTS "network_tasks_owner_fk"
-    FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE cascade;
-ALTER TABLE "network_tasks"
-  ADD CONSTRAINT IF NOT EXISTS "network_tasks_assignee_fk"
-    FOREIGN KEY ("assignee_user_id") REFERENCES "users"("id") ON DELETE set null;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'network_tasks_owner_fk'
+  ) THEN
+    ALTER TABLE "network_tasks"
+      ADD CONSTRAINT "network_tasks_owner_fk"
+      FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE cascade;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'network_tasks_assignee_fk'
+  ) THEN
+    ALTER TABLE "network_tasks"
+      ADD CONSTRAINT "network_tasks_assignee_fk"
+      FOREIGN KEY ("assignee_user_id") REFERENCES "users"("id") ON DELETE set null;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
@@ -55,6 +71,7 @@ BEGIN
       AND column_name = 'status'
       AND udt_name = 'task_status'
   ) THEN
+    ALTER TABLE "network_tasks" ALTER COLUMN "status" DROP DEFAULT;
     ALTER TABLE "network_tasks"
       ALTER COLUMN "status" TYPE task_status
       USING CASE
@@ -62,6 +79,7 @@ BEGIN
         WHEN "status" = 'completed' THEN 'completed'::task_status
         ELSE 'draft'::task_status
       END;
+    ALTER TABLE "network_tasks" ALTER COLUMN "status" SET DEFAULT 'draft'::task_status;
   END IF;
 END $$;
 

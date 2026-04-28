@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchUiExperiments, putUiExperiment } from "@/lib/ui-experiments-api";
 import { fetchAdminSummary } from "@/lib/admin-api";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -20,27 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { UiExperimentVariant } from "@shared/schema";
 
-const STORAGE_KEY = "sr_admin_token";
-
 export default function AdminPage() {
   const queryClient = useQueryClient();
-  const [token, setToken] = useState("");
-  const [persisted, setPersisted] = useState(false);
   const [tab, setTab] = useState<
     "accounts" | "tasks" | "credentials" | "surveys" | "context" | "experiments"
   >("accounts");
-
-  useEffect(() => {
-    const t = sessionStorage.getItem(STORAGE_KEY);
-    if (t) {
-      setToken(t);
-      setPersisted(true);
-    }
-  }, []);
 
   const { data: experiments, isLoading, error } = useQuery({
     queryKey: ["ui-experiments"],
@@ -48,25 +34,9 @@ export default function AdminPage() {
   });
 
   const summaryQuery = useQuery({
-    queryKey: ["admin-summary", persisted],
-    queryFn: async () => {
-      const t = sessionStorage.getItem(STORAGE_KEY) ?? token.trim();
-      if (!t) throw new Error("Save an admin session first.");
-      return fetchAdminSummary(t);
-    },
-    enabled: persisted,
+    queryKey: ["admin-summary"],
+    queryFn: fetchAdminSummary,
   });
-
-  const saveSession = () => {
-    sessionStorage.setItem(STORAGE_KEY, token.trim());
-    setPersisted(true);
-  };
-
-  const clearSession = () => {
-    sessionStorage.removeItem(STORAGE_KEY);
-    setToken("");
-    setPersisted(false);
-  };
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -78,9 +48,7 @@ export default function AdminPage() {
       enabled?: boolean;
       variant?: UiExperimentVariant;
     }) => {
-      const t = sessionStorage.getItem(STORAGE_KEY) ?? token.trim();
-      if (!t) throw new Error("Enter admin secret and save session first.");
-      return putUiExperiment(key, { enabled, variant }, t);
+      return putUiExperiment(key, { enabled, variant });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ui-experiments"] });
@@ -110,36 +78,6 @@ export default function AdminPage() {
             </a>
           </Link>
         </div>
-
-        <section className="border border-border p-4 md:p-6 space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-widest">Admin session</h2>
-          <p className="text-xs text-muted-foreground">
-            Paste <code className="text-foreground">ADMIN_SECRET</code> and save session.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end max-w-xl">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="admin-secret" className="text-[10px] uppercase tracking-widest">
-                Secret
-              </Label>
-              <Input
-                id="admin-secret"
-                type="password"
-                autoComplete="off"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="font-mono border-2 border-border rounded-none"
-              />
-            </div>
-            <button type="button" onClick={saveSession} className="bg-foreground text-background px-6 py-2 text-xs font-bold uppercase tracking-widest hover:opacity-90 shrink-0">
-              Save
-            </button>
-            {persisted ? (
-              <button type="button" onClick={clearSession} className="border border-border px-4 py-2 text-xs uppercase tracking-widest hover:bg-secondary shrink-0">
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </section>
 
         <div className="flex flex-wrap gap-2">
           {(["accounts", "tasks", "credentials", "surveys", "context", "experiments"] as const).map(

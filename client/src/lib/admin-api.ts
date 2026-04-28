@@ -22,10 +22,8 @@ export type AdminSummary = {
   adminEvents: Array<Record<string, unknown>>;
 };
 
-export async function fetchAdminSummary(token: string): Promise<AdminSummary> {
-  const r = await fetch("/api/admin/summary", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function fetchAdminSummary(): Promise<AdminSummary> {
+  const r = await fetch("/api/admin/summary", { credentials: "include" });
   const data = (await r.json().catch(() => ({}))) as {
     message?: string;
   } & Partial<AdminSummary>;

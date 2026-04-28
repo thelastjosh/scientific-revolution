@@ -113,27 +113,21 @@ const profileUpdateSchema = z.object({
   bio: z.string().max(6000).nullable().optional(),
 });
 
-function getAdminSecret(): string | undefined {
-  return process.env.ADMIN_SECRET?.trim();
-}
-
-function assertAdmin(req: Request): void {
-  const secret = getAdminSecret();
-  if (!secret) {
-    const err = new Error("ADMIN_SECRET is not configured");
-    (err as { status?: number }).status = 503;
+async function assertAdmin(req: Request): Promise<void> {
+  if (!req.userId) {
+    const err = new Error("Sign in required");
+    (err as { status?: number }).status = 401;
     throw err;
   }
-  const auth = req.headers.authorization;
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : undefined;
-  const headerToken =
-    typeof req.headers["x-admin-token"] === "string"
-      ? req.headers["x-admin-token"]
-      : undefined;
-  const token = bearer || headerToken;
-  if (!token || token !== secret) {
-    const err = new Error("Unauthorized");
+  const user = await storage.getUser(req.userId);
+  if (!user) {
+    const err = new Error("User not found");
     (err as { status?: number }).status = 401;
+    throw err;
+  }
+  if (user.role !== "admin") {
+    const err = new Error("Admin role required");
+    (err as { status?: number }).status = 403;
     throw err;
   }
 }
@@ -475,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.get("/api/admin/summary", async (req: Request, res: Response) => {
     try {
-      assertAdmin(req);
+      await assertAdmin(req);
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string };
       return res.status(err.status ?? 500).json({ message: err.message ?? "Error" });
@@ -522,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.put("/api/ui-experiments/:key", async (req: Request, res: Response) => {
     try {
-      assertAdmin(req);
+      await assertAdmin(req);
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string };
       return res
