@@ -393,12 +393,12 @@ export function HomeChatPanel({
       <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Entry
+            Workspace
           </p>
           <button
             type="button"
             onClick={resetChatToHome}
-            className="block text-left text-xs font-bold uppercase tracking-tight hover:underline underline-offset-4 decoration-border hover:decoration-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+            className="block text-left text-sm hover:underline underline-offset-4 decoration-border hover:decoration-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
           >
             Scientific Revolution
           </button>
@@ -406,7 +406,7 @@ export function HomeChatPanel({
         {user ? (
           <div className="flex items-center gap-2">
             <Link href="/dashboard">
-              <a className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors">
+              <a className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider">
                 Dashboard
               </a>
             </Link>
@@ -416,7 +416,7 @@ export function HomeChatPanel({
                 await logout();
                 navigate("/");
               }}
-              className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+              className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
             >
               Logout
             </button>
@@ -425,7 +425,7 @@ export function HomeChatPanel({
           <button
             type="button"
             onClick={() => setLoginModalOpen(true)}
-            className="text-[10px] uppercase tracking-widest border border-border px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
           >
             Login
           </button>
