@@ -26,9 +26,6 @@ export default function DashboardPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [rawDoc, setRawDoc] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
-  const [profileSaveState, setProfileSaveState] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard"],
@@ -83,12 +80,6 @@ export default function DashboardPage() {
       );
     },
   });
-
-  useEffect(() => {
-    if (profileSaveState !== "saved") return;
-    const t = window.setTimeout(() => setProfileSaveState("idle"), 2500);
-    return () => window.clearTimeout(t);
-  }, [profileSaveState]);
 
   const extractMutation = useMutation({
     mutationFn: extractTaskDraft,
@@ -265,16 +256,7 @@ export default function DashboardPage() {
           {activePane === "profile" ? (
             <ProfilePane
               profile={profile}
-              onSave={async (input) => {
-                setProfileSaveState("saving");
-                try {
-                  await profileMutation.mutateAsync(input);
-                  setProfileSaveState("saved");
-                } catch {
-                  setProfileSaveState("error");
-                }
-              }}
-              saveState={profileSaveState}
+              onSave={(input) => profileMutation.mutateAsync(input)}
             />
           ) : null}
 
@@ -383,7 +365,6 @@ export default function DashboardPage() {
 function ProfilePane({
   profile,
   onSave,
-  saveState,
 }: {
   profile: DashboardProfile;
   onSave: (input: {
@@ -393,12 +374,37 @@ function ProfilePane({
     profileMarkdown?: string;
     relationshipMarkdown?: string;
     skillMarkdown?: string;
-  }) => Promise<void>;
-  saveState: "idle" | "saving" | "saved" | "error";
+  }) => Promise<unknown>;
 }) {
-  const [activeManifest, setActiveManifest] = useState<"profile" | "relationship" | "skill">(
-    "profile",
-  );
+  const [saveState, setSaveState] = useState<{
+    profile: "idle" | "saving" | "saved" | "error";
+    relationship: "idle" | "saving" | "saved" | "error";
+    skill: "idle" | "saving" | "saved" | "error";
+  }>({
+    profile: "idle",
+    relationship: "idle",
+    skill: "idle",
+  });
+  useEffect(() => {
+    if (
+      saveState.profile !== "saved" &&
+      saveState.relationship !== "saved" &&
+      saveState.skill !== "saved"
+    ) {
+      return;
+    }
+    const t = window.setTimeout(
+      () =>
+        setSaveState((prev) => ({
+          profile: prev.profile === "saved" ? "idle" : prev.profile,
+          relationship:
+            prev.relationship === "saved" ? "idle" : prev.relationship,
+          skill: prev.skill === "saved" ? "idle" : prev.skill,
+        })),
+      2500,
+    );
+    return () => window.clearTimeout(t);
+  }, [saveState]);
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
   const [profileMarkdown, setProfileMarkdown] = useState(profile.profileMarkdown);
@@ -407,30 +413,23 @@ function ProfilePane({
   );
   const [skillMarkdown, setSkillMarkdown] = useState(profile.skillMarkdown);
 
-  const saveLabel =
-    saveState === "saving"
+  const saveLabel = (state: "idle" | "saving" | "saved" | "error") =>
+    state === "saving"
       ? "Saving..."
-      : saveState === "saved"
+      : state === "saved"
         ? "Profile Saved"
-        : saveState === "error"
+        : state === "error"
           ? "Save failed - retry"
           : "Save Profile";
-  const saveButtonClass =
-    saveState === "saved"
+  const saveButtonClass = (state: "idle" | "saving" | "saved" | "error") =>
+    state === "saved"
       ? "inline-flex items-center border border-foreground bg-foreground text-background px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
-      : saveState === "error"
+      : state === "error"
         ? "inline-flex items-center border border-destructive text-destructive px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
         : "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary";
 
-  const manifestText =
-    activeManifest === "profile"
-      ? profileMarkdown
-      : activeManifest === "relationship"
-        ? relationshipMarkdown
-        : skillMarkdown;
-
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-4 min-h-0 overflow-y-auto">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <input
           value={firstName}
@@ -445,57 +444,114 @@ function ProfilePane({
           placeholder="Last name"
         />
       </div>
-      <div className="border border-border bg-card">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs">
-          <div className="flex items-center gap-2">
-            {(["profile", "relationship", "skill"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveManifest(tab)}
-                className={`inline-flex items-center border px-2.5 py-1 uppercase tracking-wider transition-colors ${
-                  activeManifest === tab
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border hover:bg-secondary/50 active:bg-secondary"
-                }`}
-              >
-                {tab}.md
-              </button>
-            ))}
-          </div>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Manifest editor
-          </span>
-        </div>
-        <textarea
-          rows={14}
-          value={manifestText}
-          onChange={(e) => {
-            if (activeManifest === "profile") setProfileMarkdown(e.target.value);
-            if (activeManifest === "relationship")
-              setRelationshipMarkdown(e.target.value);
-            if (activeManifest === "skill") setSkillMarkdown(e.target.value);
-          }}
-          className="w-full bg-transparent px-3 py-3 text-xs resize-none focus:outline-none"
-        />
+      <ManifestEditorBlock
+        title="profile.md"
+        value={profileMarkdown}
+        onChange={setProfileMarkdown}
+        saveState={saveState.profile}
+        saveLabel={saveLabel(saveState.profile)}
+        saveButtonClass={saveButtonClass(saveState.profile)}
+        onSave={async () => {
+          setSaveState((prev) => ({ ...prev, profile: "saving" }));
+          try {
+            await onSave({
+              firstName,
+              lastName,
+              bio: profileMarkdown.slice(0, 6000),
+              profileMarkdown,
+            });
+            setSaveState((prev) => ({ ...prev, profile: "saved" }));
+          } catch {
+            setSaveState((prev) => ({ ...prev, profile: "error" }));
+          }
+        }}
+      />
+      <ManifestEditorBlock
+        title="relationship.md"
+        value={relationshipMarkdown}
+        onChange={setRelationshipMarkdown}
+        saveState={saveState.relationship}
+        saveLabel={saveLabel(saveState.relationship)}
+        saveButtonClass={saveButtonClass(saveState.relationship)}
+        onSave={async () => {
+          setSaveState((prev) => ({ ...prev, relationship: "saving" }));
+          try {
+            await onSave({
+              firstName,
+              lastName,
+              relationshipMarkdown,
+            });
+            setSaveState((prev) => ({ ...prev, relationship: "saved" }));
+          } catch {
+            setSaveState((prev) => ({ ...prev, relationship: "error" }));
+          }
+        }}
+      />
+      <ManifestEditorBlock
+        title="skill.md"
+        value={skillMarkdown}
+        onChange={setSkillMarkdown}
+        saveState={saveState.skill}
+        saveLabel={saveLabel(saveState.skill)}
+        saveButtonClass={saveButtonClass(saveState.skill)}
+        onSave={async () => {
+          setSaveState((prev) => ({ ...prev, skill: "saving" }));
+          try {
+            await onSave({
+              firstName,
+              lastName,
+              skillMarkdown,
+            });
+            setSaveState((prev) => ({ ...prev, skill: "saved" }));
+          } catch {
+            setSaveState((prev) => ({ ...prev, skill: "error" }));
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+function ManifestEditorBlock({
+  title,
+  value,
+  onChange,
+  saveState,
+  saveLabel,
+  saveButtonClass,
+  onSave,
+}: {
+  title: string;
+  value: string;
+  onChange: (value: string) => void;
+  saveState: "idle" | "saving" | "saved" | "error";
+  saveLabel: string;
+  saveButtonClass: string;
+  onSave: () => Promise<void>;
+}) {
+  return (
+    <div className="border border-border bg-card">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs">
+        <span className="inline-flex items-center border border-border px-2.5 py-1 uppercase tracking-wider">
+          {title}
+        </span>
       </div>
-      <button
-        type="button"
-        disabled={saveState === "saving"}
-        onClick={() =>
-          onSave({
-            firstName,
-            lastName,
-            bio: profileMarkdown.slice(0, 6000),
-            profileMarkdown,
-            relationshipMarkdown,
-            skillMarkdown,
-          })
-        }
-        className={saveButtonClass}
-      >
-        {saveLabel}
-      </button>
+      <textarea
+        rows={12}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-transparent px-3 py-3 text-xs resize-none focus:outline-none"
+      />
+      <div className="px-3 pb-3">
+        <button
+          type="button"
+          disabled={saveState === "saving"}
+          onClick={() => void onSave()}
+          className={saveButtonClass}
+        >
+          {saveLabel}
+        </button>
+      </div>
     </div>
   );
 }
