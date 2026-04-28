@@ -1,5 +1,4 @@
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 
 function summarizeText(text: string): string {
   const compact = text.replace(/\s+/g, " ").trim();
@@ -22,9 +21,17 @@ export async function extractCvText(input: {
     mimeLower.includes("pdf") ||
     fileNameLower.endsWith(".pdf")
   ) {
-    const parser = new PDFParse({ data: buffer });
-    const parsed = await parser.getText();
-    text = parsed.text ?? "";
+    try {
+      const { PDFParse } = await import("pdf-parse");
+      const parser = new PDFParse({ data: buffer });
+      const parsed = await parser.getText();
+      text = parsed.text ?? "";
+    } catch (error) {
+      console.warn("[onboarding-cv] PDF parsing unavailable in runtime", error);
+      throw new Error(
+        "PDF parsing is unavailable in this runtime. Please upload DOCX or TXT, or enable PDF runtime dependencies."
+      );
+    }
   } else if (
     mimeLower.includes("word") ||
     mimeLower.includes("docx") ||
