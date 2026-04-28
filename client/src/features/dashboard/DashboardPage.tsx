@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,9 @@ export default function DashboardPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [rawDoc, setRawDoc] = useState("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [profileSaveState, setProfileSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard"],
@@ -80,6 +83,12 @@ export default function DashboardPage() {
       );
     },
   });
+
+  useEffect(() => {
+    if (profileSaveState !== "saved") return;
+    const t = window.setTimeout(() => setProfileSaveState("idle"), 2500);
+    return () => window.clearTimeout(t);
+  }, [profileSaveState]);
 
   const extractMutation = useMutation({
     mutationFn: extractTaskDraft,
@@ -152,6 +161,8 @@ export default function DashboardPage() {
       p.email.toLowerCase().includes(q)
     );
   });
+  const navButtonClass =
+    "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
 
   return (
     <div className="min-h-screen bg-background text-foreground font-mono flex flex-col">
@@ -168,27 +179,27 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setActivePane("profile")}
-            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className={navButtonClass}
           >
             Profile
           </button>
           <button
             type="button"
             onClick={() => setActivePane("people")}
-            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className={navButtonClass}
           >
             People
           </button>
           <button
             type="button"
             onClick={() => setActivePane("tasks")}
-            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className={navButtonClass}
           >
             Tasks
           </button>
           {isAdmin ? (
             <Link href="/admin">
-              <a className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider">
+              <a className={navButtonClass}>
                 Admin
               </a>
             </Link>
@@ -199,7 +210,7 @@ export default function DashboardPage() {
               await logout();
               navigate("/");
             }}
-            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className={navButtonClass}
           >
             Logout
           </button>
@@ -254,8 +265,16 @@ export default function DashboardPage() {
           {activePane === "profile" ? (
             <ProfilePane
               profile={profile}
-              onSave={(input) => profileMutation.mutate(input)}
-              saving={profileMutation.isPending}
+              onSave={async (input) => {
+                setProfileSaveState("saving");
+                try {
+                  await profileMutation.mutateAsync(input);
+                  setProfileSaveState("saved");
+                } catch {
+                  setProfileSaveState("error");
+                }
+              }}
+              saveState={profileSaveState}
             />
           ) : null}
 
@@ -364,40 +383,117 @@ export default function DashboardPage() {
 function ProfilePane({
   profile,
   onSave,
-  saving,
 }: {
   profile: DashboardProfile;
-  onSave: (input: { firstName?: string; lastName?: string; bio?: string | null }) => void;
-  saving: boolean;
+  onSave: (input: {
+    firstName?: string;
+    lastName?: string;
+    bio?: string | null;
+    profileMarkdown?: string;
+    relationshipMarkdown?: string;
+    skillMarkdown?: string;
+  }) => Promise<void>;
+  saveState: "idle" | "saving" | "saved" | "error";
 }) {
+  const [activeManifest, setActiveManifest] = useState<"profile" | "relationship" | "skill">(
+    "profile",
+  );
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
-  const [bio, setBio] = useState(profile.bio ?? "");
+  const [profileMarkdown, setProfileMarkdown] = useState(profile.profileMarkdown);
+  const [relationshipMarkdown, setRelationshipMarkdown] = useState(
+    profile.relationshipMarkdown,
+  );
+  const [skillMarkdown, setSkillMarkdown] = useState(profile.skillMarkdown);
+
+  const saveLabel =
+    saveState === "saving"
+      ? "Saving..."
+      : saveState === "saved"
+        ? "Profile Saved"
+        : saveState === "error"
+          ? "Save failed - retry"
+          : "Save Profile";
+  const saveButtonClass =
+    saveState === "saved"
+      ? "inline-flex items-center border border-foreground bg-foreground text-background px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
+      : saveState === "error"
+        ? "inline-flex items-center border border-destructive text-destructive px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
+        : "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary";
+
+  const manifestText =
+    activeManifest === "profile"
+      ? profileMarkdown
+      : activeManifest === "relationship"
+        ? relationshipMarkdown
+        : skillMarkdown;
+
   return (
     <div className="p-4 space-y-3">
-      <input
-        value={firstName}
-        onChange={(e) => setFirstName(e.target.value)}
-        className="w-full border border-border bg-transparent px-3 py-2 text-xs"
-      />
-      <input
-        value={lastName}
-        onChange={(e) => setLastName(e.target.value)}
-        className="w-full border border-border bg-transparent px-3 py-2 text-xs"
-      />
-      <textarea
-        rows={8}
-        value={bio}
-        onChange={(e) => setBio(e.target.value)}
-        className="w-full border border-border bg-transparent px-3 py-2 text-xs"
-      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          className="w-full border border-border bg-transparent px-3 py-2 text-xs"
+          placeholder="First name"
+        />
+        <input
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          className="w-full border border-border bg-transparent px-3 py-2 text-xs"
+          placeholder="Last name"
+        />
+      </div>
+      <div className="border border-border bg-card">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs">
+          <div className="flex items-center gap-2">
+            {(["profile", "relationship", "skill"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveManifest(tab)}
+                className={`inline-flex items-center border px-2.5 py-1 uppercase tracking-wider transition-colors ${
+                  activeManifest === tab
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border hover:bg-secondary/50 active:bg-secondary"
+                }`}
+              >
+                {tab}.md
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Manifest editor
+          </span>
+        </div>
+        <textarea
+          rows={14}
+          value={manifestText}
+          onChange={(e) => {
+            if (activeManifest === "profile") setProfileMarkdown(e.target.value);
+            if (activeManifest === "relationship")
+              setRelationshipMarkdown(e.target.value);
+            if (activeManifest === "skill") setSkillMarkdown(e.target.value);
+          }}
+          className="w-full bg-transparent px-3 py-3 text-xs resize-none focus:outline-none"
+        />
+      </div>
       <button
         type="button"
-        disabled={saving}
-        onClick={() => onSave({ firstName, lastName, bio })}
-        className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+        disabled={saveState === "saving"}
+        onClick={() =>
+          onSave({
+            firstName,
+            lastName,
+            bio: profileMarkdown.slice(0, 6000),
+            profileMarkdown,
+            relationshipMarkdown,
+            skillMarkdown,
+          })
+        }
+        className={saveButtonClass}
       >
-        Save profile
+        {saveLabel}
       </button>
     </div>
   );

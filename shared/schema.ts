@@ -35,6 +35,12 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   /** Short bio / profile summary for dashboard and matching */
   bio: text("bio"),
+  /** Full profile manifest markdown */
+  profileMarkdown: text("profile_markdown"),
+  /** Relationship manifest markdown */
+  relationshipMarkdown: text("relationship_markdown"),
+  /** Skill manifest markdown */
+  skillMarkdown: text("skill_markdown"),
   role: varchar("role", { length: 24 }).notNull().default("member"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

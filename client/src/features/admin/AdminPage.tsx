@@ -56,6 +56,8 @@ export default function AdminPage() {
   });
 
   const summary = summaryQuery.data;
+  const actionButtonClass =
+    "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
 
   return (
     <div className="min-h-screen bg-background text-foreground font-mono p-6 md:p-10">
@@ -73,7 +75,7 @@ export default function AdminPage() {
             </p>
           </div>
           <Link href="/dashboard">
-            <a className="text-xs font-bold uppercase tracking-widest border border-border px-4 py-2 hover:bg-foreground hover:text-background transition-colors inline-block">
+            <a className={`${actionButtonClass} px-4 py-2 font-bold`}>
               Dashboard
             </a>
           </Link>
@@ -86,7 +88,7 @@ export default function AdminPage() {
                 key={k}
                 type="button"
                 onClick={() => setTab(k)}
-                className={`border border-border px-3 py-1.5 text-xs uppercase tracking-wider ${tab === k ? "bg-foreground text-background" : ""}`}
+                className={`${actionButtonClass} ${tab === k ? "bg-foreground text-background border-foreground" : ""}`}
               >
                 {k}
               </button>

@@ -60,6 +60,8 @@ export function OnboardingIntro({
   };
 
   const greeting = onboardingGreetingLine(inviteFirstName);
+  const actionButtonClass =
+    "shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground disabled:opacity-50";
 
   const onCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -129,7 +131,7 @@ export function OnboardingIntro({
               type="button"
               onClick={applyLink}
               disabled={linkBusy}
-              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
+              className={actionButtonClass}
             >
               {linkBusy ? "Fetching…" : "Add"}
             </button>
@@ -143,7 +145,7 @@ export function OnboardingIntro({
           >
             Upload a CV
           </p>
-          <label className="inline-flex cursor-pointer items-center gap-2 border border-border bg-background px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors">
+          <label className="inline-flex cursor-pointer items-center gap-2 border border-border bg-background px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary">
             <input
               type="file"
               className="sr-only"
@@ -172,7 +174,7 @@ export function OnboardingIntro({
             <button
               type="button"
               onClick={applyInvite}
-              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+              className={actionButtonClass}
             >
               Apply
             </button>
@@ -190,7 +192,7 @@ export function OnboardingIntro({
             <button
               type="button"
               onClick={onContinueInterview}
-              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+              className={actionButtonClass}
             >
               Continue interview
             </button>
@@ -208,7 +210,7 @@ export function OnboardingIntro({
             <button
               type="button"
               onClick={onSkipOnboarding}
-              className="shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider hover:bg-foreground hover:text-background transition-colors"
+              className={actionButtonClass}
             >
               Create account
             </button>

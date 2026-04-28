@@ -133,6 +133,8 @@ export function HomeChatPanel({
   }, [navigate, onResetHome]);
 
   const showEntryPreview = ready && messages.length === 0;
+  const navButtonClass =
+    "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
 
   useEffect(() => {
     let cancelled = false;
@@ -406,7 +408,7 @@ export function HomeChatPanel({
         {user ? (
           <div className="flex items-center gap-2">
             <Link href="/dashboard">
-              <a className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider">
+              <a className={navButtonClass}>
                 Dashboard
               </a>
             </Link>
@@ -416,7 +418,7 @@ export function HomeChatPanel({
                 await logout();
                 navigate("/");
               }}
-              className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+              className={navButtonClass}
             >
               Logout
             </button>
@@ -425,7 +427,7 @@ export function HomeChatPanel({
           <button
             type="button"
             onClick={() => setLoginModalOpen(true)}
-            className="inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+            className={navButtonClass}
           >
             Login
           </button>

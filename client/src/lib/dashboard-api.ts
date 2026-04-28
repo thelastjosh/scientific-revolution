@@ -12,6 +12,9 @@ export type DashboardProfile = {
   lastName: string;
   email: string;
   bio: string | null;
+  profileMarkdown: string;
+  relationshipMarkdown: string;
+  skillMarkdown: string;
 };
 
 export type DashboardPayload = {
@@ -54,6 +57,9 @@ export async function saveProfileDraft(input: {
   firstName?: string;
   lastName?: string;
   bio?: string | null;
+  profileMarkdown?: string;
+  relationshipMarkdown?: string;
+  skillMarkdown?: string;
 }): Promise<DashboardProfile> {
   const r = await fetch("/api/profile/me", {
     method: "PUT",

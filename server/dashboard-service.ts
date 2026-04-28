@@ -17,6 +17,9 @@ export type DashboardProfile = {
   lastName: string;
   email: string;
   bio: string | null;
+  profileMarkdown: string;
+  relationshipMarkdown: string;
+  skillMarkdown: string;
 };
 
 export type OrganizationDto = {
@@ -46,12 +49,31 @@ function rowToTask(row: typeof networkTasks.$inferSelect): Task {
 }
 
 function userToProfile(u: User): DashboardProfile {
+  const profileMarkdown =
+    u.profileMarkdown?.trim() ||
+    [
+      `# Profile: ${u.firstName} ${u.lastName}`,
+      "",
+      "## Summary",
+      u.bio?.trim() || "Add your profile summary here.",
+    ].join("\n");
+  const relationshipMarkdown =
+    u.relationshipMarkdown?.trim() ||
+    ["# Relationship", "", "## Peers", "- Add key collaborators here."].join("\n");
+  const skillMarkdown =
+    u.skillMarkdown?.trim() ||
+    ["# Skill", "", "## Working Style", "- Add operating preferences here."].join(
+      "\n",
+    );
   return {
     id: u.id,
     firstName: u.firstName,
     lastName: u.lastName,
     email: u.email,
     bio: u.bio ?? null,
+    profileMarkdown,
+    relationshipMarkdown,
+    skillMarkdown,
   };
 }
 

@@ -70,7 +70,7 @@ export default function Profile() {
 `);
 
   const [showGraph, setShowGraph] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [profileImage, setProfileImage] = useState<string>(profile1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -81,10 +81,11 @@ export default function Profile() {
   ];
 
   const handleSave = () => {
-    setIsSaving(true);
+    setSaveState("saving");
     setTimeout(() => {
-      setIsSaving(false);
-    }, 1000);
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2200);
+    }, 700);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +98,13 @@ export default function Profile() {
       reader.readAsDataURL(file);
     }
   };
+
+  const buttonBaseClass =
+    "inline-flex items-center gap-2 border px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground active:translate-y-[1px]";
+  const saveButtonClass =
+    saveState === "saved"
+      ? `${buttonBaseClass} border-foreground bg-foreground text-background`
+      : `${buttonBaseClass} border-border hover:bg-secondary/50 active:bg-secondary`;
 
   return (
     <div className="min-h-screen bg-background text-foreground font-mono p-4 md:p-8">
@@ -138,11 +146,15 @@ export default function Profile() {
           </div>
           <button
             onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-50"
+            disabled={saveState === "saving"}
+            className={saveButtonClass}
           >
             <Save className="w-4 h-4" />
-            {isSaving ? "Saving..." : "Save Profile"}
+            {saveState === "saving"
+              ? "Saving..."
+              : saveState === "saved"
+                ? "Profile Saved"
+                : "Save Profile"}
           </button>
         </div>
 

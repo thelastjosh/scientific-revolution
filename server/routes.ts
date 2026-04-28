@@ -112,6 +112,9 @@ const profileUpdateSchema = z.object({
   firstName: z.string().trim().min(1).max(50).optional(),
   lastName: z.string().trim().min(1).max(50).optional(),
   bio: z.string().max(6000).nullable().optional(),
+  profileMarkdown: z.string().max(50000).optional(),
+  relationshipMarkdown: z.string().max(50000).optional(),
+  skillMarkdown: z.string().max(50000).optional(),
 });
 
 async function assertAdmin(req: Request): Promise<void> {
@@ -280,6 +283,9 @@ export async function registerRoutes(app: Express): Promise<void> {
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
         bio: parsed.data.bio,
+        profileMarkdown: parsed.data.profileMarkdown,
+        relationshipMarkdown: parsed.data.relationshipMarkdown,
+        skillMarkdown: parsed.data.skillMarkdown,
         updatedAt: new Date(),
       })
       .where(eq(users.id, req.userId))
@@ -293,6 +299,9 @@ export async function registerRoutes(app: Express): Promise<void> {
         lastName: user.lastName,
         email: user.email,
         bio: user.bio ?? null,
+        profileMarkdown: user.profileMarkdown ?? "",
+        relationshipMarkdown: user.relationshipMarkdown ?? "",
+        skillMarkdown: user.skillMarkdown ?? "",
       },
     });
   });
@@ -493,6 +502,9 @@ export async function registerRoutes(app: Express): Promise<void> {
         lastName: u.lastName,
         role: u.role,
         bio: u.bio ?? null,
+        profileMarkdown: u.profileMarkdown ?? null,
+        relationshipMarkdown: u.relationshipMarkdown ?? null,
+        skillMarkdown: u.skillMarkdown ?? null,
       })),
       tasks: taskRows.map((t) => ({
         id: t.id,
