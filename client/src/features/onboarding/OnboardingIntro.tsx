@@ -104,7 +104,7 @@ export function OnboardingIntro({
         </p>
       ) : null}
       <p className="text-base font-normal tracking-tight leading-snug break-words text-foreground">
-        SR has several ways to onboard and enrich your profile:
+        You can onboard through a few ways:
       </p>
 
       <ul className="space-y-4 text-left border-l-2 border-border pl-4 ml-0.5">
@@ -203,7 +203,7 @@ export function OnboardingIntro({
               className="text-muted-foreground font-normal"
               style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
             >
-              Skip onboarding / create an account
+              Skip onboarding for now
             </p>
             <button
               type="button"

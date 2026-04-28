@@ -69,7 +69,7 @@ export function onboardingGreetingLine(
 }
 
 /** Plain-text body (no UI chrome) — kept in sync with OnboardingIntro layout. */
-export const ONBOARDING_OPENING_BODY = `SR has several ways to onboard and enrich your profile:
+export const ONBOARDING_OPENING_BODY = `You can onboard through a few ways:
 
 Add a link (e.g. site or LinkedIn) — use the field in the onboarding block.
 Upload a CV — use the upload control in the chat.
