@@ -81,6 +81,38 @@ export class DbStorage implements IStorage {
       const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
       return rows[0];
     } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (
+        err.code === "42703" &&
+        typeof err.message === "string" &&
+        (err.message.includes("profile_markdown") ||
+          err.message.includes("relationship_markdown") ||
+          err.message.includes("skill_markdown"))
+      ) {
+        const rows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            passwordHash: users.passwordHash,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            bio: users.bio,
+            role: users.role,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .where(eq(users.id, id))
+          .limit(1);
+        const row = rows[0];
+        if (!row) return undefined;
+        return {
+          ...row,
+          profileMarkdown: null,
+          relationshipMarkdown: null,
+          skillMarkdown: null,
+        } as User;
+      }
       remapMissingRoleColumnError(e);
     }
   }
@@ -96,6 +128,38 @@ export class DbStorage implements IStorage {
         .limit(1);
       return rows[0];
     } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (
+        err.code === "42703" &&
+        typeof err.message === "string" &&
+        (err.message.includes("profile_markdown") ||
+          err.message.includes("relationship_markdown") ||
+          err.message.includes("skill_markdown"))
+      ) {
+        const rows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            passwordHash: users.passwordHash,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            bio: users.bio,
+            role: users.role,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .where(eq(users.email, email.trim().toLowerCase()))
+          .limit(1);
+        const row = rows[0];
+        if (!row) return undefined;
+        return {
+          ...row,
+          profileMarkdown: null,
+          relationshipMarkdown: null,
+          skillMarkdown: null,
+        } as User;
+      }
       remapMissingRoleColumnError(e);
     }
   }
@@ -122,6 +186,37 @@ export class DbStorage implements IStorage {
         .orderBy(users.email);
       return rows;
     } catch (e) {
+      const err = e as { code?: string; message?: string };
+      if (
+        err.code === "42703" &&
+        typeof err.message === "string" &&
+        (err.message.includes("profile_markdown") ||
+          err.message.includes("relationship_markdown") ||
+          err.message.includes("skill_markdown"))
+      ) {
+        const rows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            bio: users.bio,
+            role: users.role,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .orderBy(users.email);
+        return rows.map(
+          (row) =>
+            ({
+              ...row,
+              profileMarkdown: null,
+              relationshipMarkdown: null,
+              skillMarkdown: null,
+            }) as PublicUser,
+        );
+      }
       remapMissingRoleColumnError(e);
     }
   }
