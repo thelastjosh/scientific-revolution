@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpCircle, Copy, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   createTask,
   extractTaskDraft,
@@ -21,15 +22,18 @@ import {
   listMyInvites,
   revokeInvite,
 } from "@/lib/onboarding-api";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 
-type Pane = "profile" | "people" | "tasks";
+/** Shared motion for dashboard controls: lift on hover, press on click. */
+const DASH_PRESS =
+  "transition-all duration-200 ease-out motion-safe:hover:scale-[1.02] motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98] motion-safe:active:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100 disabled:hover:translate-y-0";
+
+const DASH_BTN = cn(
+  "inline-flex items-center justify-center border border-border bg-transparent",
+  DASH_PRESS,
+  "hover:bg-secondary/70 hover:border-foreground/25 hover:shadow-sm",
+);
+
+type Pane = "profile" | "people" | "tasks" | "invites";
 
 export default function DashboardPage() {
   const [, navigate] = useLocation();
@@ -42,7 +46,6 @@ export default function DashboardPage() {
   const [newTaskNotifyEmail, setNewTaskNotifyEmail] = useState("");
   const [newTaskOrgId, setNewTaskOrgId] = useState<string>("");
   const [peopleQuery, setPeopleQuery] = useState("");
-  const [invitesOpen, setInvitesOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOrgId, setInviteOrgId] = useState("");
   const [inviteMaxUses, setInviteMaxUses] = useState("1");
@@ -64,10 +67,10 @@ export default function DashboardPage() {
   }, [organizations, newTaskOrgId]);
 
   useEffect(() => {
-    if (invitesOpen && organizations.length > 0 && !inviteOrgId) {
+    if (activePane === "invites" && organizations.length > 0 && !inviteOrgId) {
       setInviteOrgId(organizations[0]!.id);
     }
-  }, [invitesOpen, organizations, inviteOrgId]);
+  }, [activePane, organizations, inviteOrgId]);
   const workspaceSession = dashboardQuery.data?.workspaceSession ?? null;
   const messages = dashboardQuery.data?.workspaceMessages ?? [];
   const isAdmin = dashboardQuery.data?.isAdmin ?? false;
@@ -98,6 +101,14 @@ export default function DashboardPage() {
         },
       );
       setDraft("");
+      toast({ title: "Sent", description: "Your message was delivered to the workspace." });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Message not sent",
+        description: e.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -112,10 +123,27 @@ export default function DashboardPage() {
         },
       );
     },
+    onError: (e: Error) => {
+      toast({
+        title: "Profile save failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const extractMutation = useMutation({
     mutationFn: extractTaskDraft,
+    onSuccess: () => {
+      toast({ title: "Draft ready", description: "Review the extracted title and description below." });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Extract failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const createTaskMutation = useMutation({
@@ -129,6 +157,14 @@ export default function DashboardPage() {
         },
       );
       setSelectedTaskId(created.id);
+      toast({ title: "Task created", description: created.title });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Could not create task",
+        description: e.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -153,13 +189,21 @@ export default function DashboardPage() {
           };
         },
       );
+      toast({ title: "Task saved", description: updated.title });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Task save failed",
+        description: e.message,
+        variant: "destructive",
+      });
     },
   });
 
   const invitesQuery = useQuery({
     queryKey: ["my-invites"],
     queryFn: listMyInvites,
-    enabled: invitesOpen,
+    enabled: activePane === "invites",
   });
 
   const createInviteMutation = useMutation({
@@ -253,8 +297,15 @@ export default function DashboardPage() {
       p.email.toLowerCase().includes(q)
     );
   });
-  const navButtonClass =
-    "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
+
+  const paneTabClass = (pane: Pane) =>
+    cn(
+      DASH_BTN,
+      "px-3 py-1.5 text-xs uppercase tracking-wider",
+      activePane === pane &&
+        "border-foreground bg-foreground text-background hover:bg-foreground hover:border-foreground shadow-sm scale-100",
+      activePane === pane && "motion-safe:hover:scale-100 motion-safe:hover:translate-y-0",
+    );
 
   return (
     <div className="min-h-screen bg-background text-foreground font-mono flex flex-col">
@@ -267,38 +318,22 @@ export default function DashboardPage() {
             {profile.firstName} {profile.lastName}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActivePane("profile")}
-            className={navButtonClass}
-          >
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <button type="button" onClick={() => setActivePane("profile")} className={paneTabClass("profile")}>
             Profile
           </button>
-          <button
-            type="button"
-            onClick={() => setActivePane("people")}
-            className={navButtonClass}
-          >
+          <button type="button" onClick={() => setActivePane("people")} className={paneTabClass("people")}>
             People
           </button>
-          <button
-            type="button"
-            onClick={() => setActivePane("tasks")}
-            className={navButtonClass}
-          >
+          <button type="button" onClick={() => setActivePane("tasks")} className={paneTabClass("tasks")}>
             Tasks
           </button>
-          <button
-            type="button"
-            onClick={() => setInvitesOpen(true)}
-            className={navButtonClass}
-          >
+          <button type="button" onClick={() => setActivePane("invites")} className={paneTabClass("invites")}>
             Invites
           </button>
           {isAdmin ? (
             <Link href="/admin">
-              <a className={navButtonClass}>
+              <a className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider no-underline")}>
                 Admin
               </a>
             </Link>
@@ -309,7 +344,7 @@ export default function DashboardPage() {
               await logout();
               navigate("/");
             }}
-            className={navButtonClass}
+            className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider")}
           >
             Logout
           </button>
@@ -325,7 +360,13 @@ export default function DashboardPage() {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             {messages.map((m) => (
-              <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
+              <div
+                key={m.id}
+                className={cn(
+                  m.role === "user" ? "text-right" : "text-left",
+                  "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300",
+                )}
+              >
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
                   {m.role}
                 </p>
@@ -346,7 +387,13 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => sendMutation.mutate(draft)}
                 disabled={!draft.trim() || sendMutation.isPending}
-                className="absolute right-2 bottom-2"
+                className={cn(
+                  "absolute right-2 bottom-2 rounded-full p-1 text-foreground",
+                  DASH_PRESS,
+                  "hover:bg-secondary/80 hover:text-foreground",
+                  sendMutation.isPending && "animate-pulse",
+                )}
+                aria-label="Send message"
               >
                 <ArrowUpCircle className="w-5 h-5" />
               </button>
@@ -405,9 +452,9 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => extractMutation.mutate(rawDoc)}
                   disabled={!rawDoc.trim() || extractMutation.isPending}
-                  className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+                  className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider")}
                 >
-                  Extract draft
+                  {extractMutation.isPending ? "Extracting…" : "Extract draft"}
                 </button>
                 {extractMutation.data ? (
                   <div className="space-y-2 border-t border-border pt-2">
@@ -460,10 +507,11 @@ export default function DashboardPage() {
                               : undefined,
                         })
                       }
-                      className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+                      disabled={createTaskMutation.isPending}
+                      className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider")}
                     >
                       <Plus className="w-3 h-3 inline mr-1" />
-                      Create task
+                      {createTaskMutation.isPending ? "Creating…" : "Create task"}
                     </button>
                   </div>
                 ) : null}
@@ -476,9 +524,13 @@ export default function DashboardPage() {
                     key={t.id}
                     type="button"
                     onClick={() => setSelectedTaskId(t.id)}
-                    className={`w-full text-left border p-3 ${
-                      selectedTaskId === t.id ? "border-foreground" : "border-border"
-                    }`}
+                    className={cn(
+                      DASH_BTN,
+                      "w-full text-left border p-3 justify-start rounded-none",
+                      selectedTaskId === t.id
+                        ? "border-foreground bg-secondary/40 shadow-sm"
+                        : "border-border",
+                    )}
                   >
                     <p className="text-sm">{t.title}</p>
                     <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
@@ -500,133 +552,131 @@ export default function DashboardPage() {
               ) : null}
             </div>
           ) : null}
+
+          {activePane === "invites" ? (
+            <div className="p-4 space-y-4 min-h-0 flex flex-col">
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-widest text-muted-foreground">Invite links</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed normal-case">
+                  Create shareable links for onboarding. Recipients open the link on the home page to
+                  start with your invite context.
+                </p>
+              </div>
+
+              <div className="space-y-2 border border-border p-3 shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">New invite</p>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Invitee email (optional)"
+                  className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                />
+                {organizations.length > 0 ? (
+                  <label className="block space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Organization
+                    </span>
+                    <select
+                      value={inviteOrgId}
+                      onChange={(e) => setInviteOrgId(e.target.value)}
+                      className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                    >
+                      <option value="">(none)</option>
+                      {organizations.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <input
+                    value={inviteOrgId}
+                    onChange={(e) => setInviteOrgId(e.target.value)}
+                    placeholder="Organization ID (optional)"
+                    className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                  />
+                )}
+                <input
+                  value={inviteMaxUses}
+                  onChange={(e) => setInviteMaxUses(e.target.value)}
+                  placeholder="Max uses"
+                  className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={createInviteMutation.isPending}
+                  onClick={() => createInviteMutation.mutate()}
+                  className={cn(DASH_BTN, "w-full px-3 py-2 text-xs uppercase tracking-wider")}
+                >
+                  {createInviteMutation.isPending ? "Creating…" : "Create invite"}
+                </button>
+              </div>
+
+              <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
+                  Your invites
+                </p>
+                {invitesQuery.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading…</p>
+                ) : invitesQuery.isError ? (
+                  <p className="text-xs text-destructive">
+                    {(invitesQuery.error as Error).message ?? "Could not load invites"}
+                  </p>
+                ) : (
+                  <>
+                    {(invitesQuery.data ?? []).length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No invites yet.</p>
+                    ) : (
+                      <ul className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
+                        {(invitesQuery.data ?? []).map((invite) => (
+                          <li
+                            key={invite.token}
+                            className="border border-border p-2 space-y-2 text-xs"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                                  {String(invite.validity ?? "unknown")}
+                                </p>
+                                <p className="font-mono break-all text-[11px] leading-snug mt-0.5">
+                                  {invite.token}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => copyInviteLink(invite.token)}
+                                className={cn(DASH_BTN, "inline-flex gap-1 px-2 py-1 text-[10px] uppercase tracking-wider")}
+                              >
+                                <Copy className="w-3 h-3" aria-hidden />
+                                Copy link
+                              </button>
+                              <button
+                                type="button"
+                                disabled={revokeInviteMutation.isPending}
+                                onClick={() => revokeInviteMutation.mutate(invite.token)}
+                                className={cn(
+                                  DASH_BTN,
+                                  "px-2 py-1 text-[10px] uppercase tracking-wider hover:bg-destructive/10 hover:border-destructive/40",
+                                )}
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
         </aside>
       </div>
-
-      <Sheet open={invitesOpen} onOpenChange={setInvitesOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md border-l border-border font-mono overflow-y-auto flex flex-col gap-4"
-        >
-          <SheetHeader className="text-left space-y-1 pr-8">
-            <SheetTitle className="text-xs uppercase tracking-widest font-normal">
-              Invite links
-            </SheetTitle>
-            <SheetDescription className="text-xs font-mono text-muted-foreground normal-case">
-              Create shareable links for onboarding. Recipients open the link on the home page to
-              start with your invite context.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-2 border border-border p-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">New invite</p>
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="Invitee email (optional)"
-              className="w-full border border-border bg-transparent px-2 py-2 text-xs"
-            />
-            {organizations.length > 0 ? (
-              <label className="block space-y-1">
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Organization
-                </span>
-                <select
-                  value={inviteOrgId}
-                  onChange={(e) => setInviteOrgId(e.target.value)}
-                  className="w-full border border-border bg-transparent px-2 py-2 text-xs"
-                >
-                  <option value="">(none)</option>
-                  {organizations.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <input
-                value={inviteOrgId}
-                onChange={(e) => setInviteOrgId(e.target.value)}
-                placeholder="Organization ID (optional)"
-                className="w-full border border-border bg-transparent px-2 py-2 text-xs"
-              />
-            )}
-            <input
-              value={inviteMaxUses}
-              onChange={(e) => setInviteMaxUses(e.target.value)}
-              placeholder="Max uses"
-              className="w-full border border-border bg-transparent px-2 py-2 text-xs"
-            />
-            <button
-              type="button"
-              disabled={createInviteMutation.isPending}
-              onClick={() => createInviteMutation.mutate()}
-              className="w-full border border-border px-3 py-2 text-xs uppercase tracking-wider hover:bg-secondary/50 disabled:opacity-50"
-            >
-              {createInviteMutation.isPending ? "Creating…" : "Create invite"}
-            </button>
-          </div>
-
-          <div className="space-y-2 flex-1 min-h-0 flex flex-col">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
-              Your invites
-            </p>
-            {invitesQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
-            ) : invitesQuery.isError ? (
-              <p className="text-xs text-destructive">
-                {(invitesQuery.error as Error).message ?? "Could not load invites"}
-              </p>
-            ) : (
-              <>
-                {(invitesQuery.data ?? []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No invites yet.</p>
-                ) : (
-                  <ul className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
-                    {(invitesQuery.data ?? []).map((invite) => (
-                      <li
-                        key={invite.token}
-                        className="border border-border p-2 space-y-2 text-xs"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                              {String(invite.validity ?? "unknown")}
-                            </p>
-                            <p className="font-mono break-all text-[11px] leading-snug mt-0.5">
-                              {invite.token}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => copyInviteLink(invite.token)}
-                            className="inline-flex items-center gap-1 border border-border px-2 py-1 uppercase tracking-wider hover:bg-secondary/50"
-                          >
-                            <Copy className="w-3 h-3" aria-hidden />
-                            Copy link
-                          </button>
-                          <button
-                            type="button"
-                            disabled={revokeInviteMutation.isPending}
-                            onClick={() => revokeInviteMutation.mutate(invite.token)}
-                            className="border border-border px-2 py-1 uppercase tracking-wider hover:bg-destructive/10 disabled:opacity-50"
-                          >
-                            Revoke
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
@@ -692,10 +742,18 @@ function ProfilePane({
           : "Save Profile";
   const saveButtonClass = (state: "idle" | "saving" | "saved" | "error") =>
     state === "saved"
-      ? "inline-flex items-center border border-foreground bg-foreground text-background px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
+      ? cn(
+          DASH_BTN,
+          "border-foreground bg-foreground text-background px-3 py-1.5 text-xs uppercase tracking-wider",
+          "hover:bg-foreground hover:border-foreground motion-safe:hover:scale-[1.02]",
+        )
       : state === "error"
-        ? "inline-flex items-center border border-destructive text-destructive px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
-        : "inline-flex items-center border border-border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary";
+        ? cn(
+            DASH_BTN,
+            "border-destructive text-destructive px-3 py-1.5 text-xs uppercase tracking-wider",
+            "hover:bg-destructive/10",
+          )
+        : cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider");
 
   return (
     <div className="p-4 space-y-4 min-h-0 overflow-y-auto">
@@ -816,7 +874,11 @@ function ManifestEditorBlock({
           type="button"
           disabled={saveState === "saving"}
           onClick={() => void onSave()}
-          className={saveButtonClass}
+          className={cn(
+            saveButtonClass,
+            "transition-[transform,colors,box-shadow] duration-300 ease-out",
+            saveState === "saved" && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
+          )}
         >
           {saveLabel}
         </button>
@@ -847,6 +909,8 @@ function TaskEditor({
     () => task.deliveryChannels.find((c) => c.kind === "email")?.address ?? "",
   );
   const [organizationId, setOrganizationId] = useState(task.organizationId ?? "");
+  const wasSaving = useRef(false);
+  const [showSaved, setShowSaved] = useState(false);
 
   useEffect(() => {
     setTitle(task.title);
@@ -855,6 +919,19 @@ function TaskEditor({
     setNotifyEmail(task.deliveryChannels.find((c) => c.kind === "email")?.address ?? "");
     setOrganizationId(task.organizationId ?? "");
   }, [task]);
+
+  useEffect(() => {
+    if (wasSaving.current && !saving) {
+      setShowSaved(true);
+      const id = window.setTimeout(() => setShowSaved(false), 2200);
+      return () => window.clearTimeout(id);
+    }
+    wasSaving.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    setShowSaved(false);
+  }, [task.id]);
 
   const deliveryChannels =
     notifyEmail.trim().length > 0 ? [{ kind: "email" as const, address: notifyEmail.trim() }] : [];
@@ -932,9 +1009,14 @@ function TaskEditor({
             deliveryChannels,
           })
         }
-        className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
+        className={cn(
+          DASH_BTN,
+          "px-3 py-1.5 text-xs uppercase tracking-wider transition-[transform,colors,box-shadow] duration-300",
+          showSaved &&
+            "border-emerald-600/80 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-500/25 ring-offset-2 ring-offset-background",
+        )}
       >
-        Save task
+        {saving ? "Saving…" : showSaved ? "Saved ✓" : "Save task"}
       </button>
     </div>
   );

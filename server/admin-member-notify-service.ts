@@ -1,11 +1,8 @@
 import { and, asc, eq } from "drizzle-orm";
 import { adminEvents, chatMessages, chatSessions, emailEvents, users } from "@shared/schema";
 import { getDb } from "./db";
+import { getOutboundFromEmail } from "./email/from-address";
 import { getResendClient } from "./email/resend-client";
-
-function fromEmail(): string {
-  return process.env.EMAIL_FROM?.trim() || "onboarding@scientific-revolution.local";
-}
 
 function escapeHtml(s: string): string {
   return s
@@ -83,7 +80,7 @@ export async function adminSendTestEmail(input: {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: fromEmail(),
+      from: getOutboundFromEmail(),
       to: user.email,
       subject,
       html,

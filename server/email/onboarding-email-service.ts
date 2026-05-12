@@ -1,13 +1,10 @@
 import { emailEvents } from "@shared/schema";
 import { getDb } from "../db";
+import { getOutboundFromEmail } from "./from-address";
 import { getResendClient } from "./resend-client";
 
 function appBaseUrl(): string {
   return (process.env.APP_BASE_URL?.trim() || "http://localhost:5000").replace(/\/+$/, "");
-}
-
-function fromEmail(): string {
-  return process.env.EMAIL_FROM?.trim() || "onboarding@scientific-revolution.local";
 }
 
 async function logEmailEvent(input: {
@@ -75,7 +72,7 @@ export async function sendInviteEmail(input: {
 
   try {
     await resend.emails.send({
-      from: fromEmail(),
+      from: getOutboundFromEmail(),
       to: input.recipientEmail,
       subject,
       html,
@@ -127,7 +124,7 @@ export async function sendOnboardingFollowUpEmail(input: {
   }
   try {
     await resend.emails.send({
-      from: fromEmail(),
+      from: getOutboundFromEmail(),
       to: input.recipientEmail,
       subject,
       html,

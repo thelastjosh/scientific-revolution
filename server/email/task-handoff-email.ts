@@ -1,5 +1,6 @@
 import type { NetworkTask } from "@shared/schema";
 import { emailEvents, networkTasks } from "@shared/schema";
+import { getOutboundFromEmail } from "./from-address";
 import { getResendClient } from "./resend-client";
 import { getCommTemplatesForOrg } from "../network-templates-service";
 import { appendCommunicationEvent } from "../network-communication-service";
@@ -13,19 +14,15 @@ import {
 
 const HANDOFF_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-function fromEmail(): string {
-  return process.env.EMAIL_FROM?.trim() || "onboarding@scientific-revolution.local";
-}
-
 /** Domain for Message-Id / Reply-To (must match verified Resend domain). */
 export function taskEmailDomain(): string {
   const explicit = process.env.TASK_EMAIL_DOMAIN?.trim();
   if (explicit) return explicit.replace(/^@+/, "");
-  const from = fromEmail();
+  const from = getOutboundFromEmail();
   const m = from.match(/<([^>]+)>/);
   const addr = m ? m[1]!.trim() : from.trim();
   const at = addr.lastIndexOf("@");
-  if (at === -1) return "scientific-revolution.local";
+  if (at === -1) return "sourceful.org";
   return addr.slice(at + 1);
 }
 
@@ -160,7 +157,7 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: fromEmail(),
+      from: getOutboundFromEmail(),
       to,
       subject,
       html,

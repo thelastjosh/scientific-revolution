@@ -11,8 +11,8 @@ Project management
 | Variable | Purpose |
 |----------|---------|
 | `RESEND_API_KEY` | Send handoff email and call `emails.receiving.get` for inbound bodies. |
-| `EMAIL_FROM` | Verified sender (e.g. `Sail <tasks@yourdomain.com>`). Domain used for Reply-To when `TASK_EMAIL_DOMAIN` is unset. |
-| `TASK_EMAIL_DOMAIN` | Optional explicit domain for `Message-ID` and `Reply-To` addresses (defaults to host part of `EMAIL_FROM`). |
+| Outbound `From` | Fixed to **`support@sourceful.org`** in [`server/email/from-address.ts`](server/email/from-address.ts) (must be a verified sender/domain in Resend). |
+| `TASK_EMAIL_DOMAIN` | Optional explicit domain for `Message-ID` and `Reply-To` addresses (defaults to `sourceful.org` from the outbound address). |
 | `TASK_EMAIL_ROUTE_SECRET` | HMAC secret for opaque Reply-To routing tokens. |
 | `RESEND_WEBHOOK_SIGNING_SECRET` | Svix signing secret from the Resend webhook (`whsec_…`) for `POST /internal/webhooks/resend/inbound`. |
 
