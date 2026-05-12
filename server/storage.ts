@@ -9,8 +9,13 @@ export type PublicUser = Omit<User, "passwordHash">;
 function remapMissingRoleColumnError(e: unknown): never {
   const err = e as { code?: string; message?: string };
   if (err.code === "42703" && typeof err.message === "string") {
-    const missingColumn = ["role", "profile_markdown", "relationship_markdown", "skill_markdown"]
-      .find((c) => err.message!.includes(c));
+    const missingColumn = [
+      "role",
+      "profile_markdown",
+      "relationship_markdown",
+      "skill_markdown",
+      "phone_number",
+    ].find((c) => err.message!.includes(c));
     if (missingColumn) {
       throw new Error(
         `Database schema is out of date (missing users.${missingColumn}). Run "npm run db:migrate".`,
@@ -64,6 +69,7 @@ export class MemStorage implements IStorage {
       profileMarkdown: null,
       relationshipMarkdown: null,
       skillMarkdown: null,
+      phoneNumber: null,
       role: "member",
       createdAt: now,
       updatedAt: now,
@@ -111,6 +117,7 @@ export class DbStorage implements IStorage {
           profileMarkdown: null,
           relationshipMarkdown: null,
           skillMarkdown: null,
+          phoneNumber: null,
         } as User;
       }
       remapMissingRoleColumnError(e);
@@ -158,6 +165,7 @@ export class DbStorage implements IStorage {
           profileMarkdown: null,
           relationshipMarkdown: null,
           skillMarkdown: null,
+          phoneNumber: null,
         } as User;
       }
       remapMissingRoleColumnError(e);
@@ -178,6 +186,7 @@ export class DbStorage implements IStorage {
           profileMarkdown: users.profileMarkdown,
           relationshipMarkdown: users.relationshipMarkdown,
           skillMarkdown: users.skillMarkdown,
+          phoneNumber: users.phoneNumber,
           role: users.role,
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
@@ -214,6 +223,7 @@ export class DbStorage implements IStorage {
               profileMarkdown: null,
               relationshipMarkdown: null,
               skillMarkdown: null,
+              phoneNumber: null,
             }) as PublicUser,
         );
       }

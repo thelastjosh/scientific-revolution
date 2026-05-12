@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   relationshipMarkdown: text("relationship_markdown"),
   /** Skill manifest markdown */
   skillMarkdown: text("skill_markdown"),
+  /** Optional E.164 or local-format phone for member contact (admin-visible). */
+  phoneNumber: text("phone_number"),
   role: varchar("role", { length: 24 }).notNull().default("member"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

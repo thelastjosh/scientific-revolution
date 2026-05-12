@@ -51,6 +51,10 @@ import { sendTaskHandoffEmailIfNeeded } from "./email/task-handoff-email";
 import { extractCvText } from "./onboarding-cv-service";
 import { registerNetworkRoutes } from "./network-routes";
 import { assertUserOrganizationMember } from "./task-organization";
+import {
+  adminSendTestEmail,
+  adminSendTestWorkspaceMessage,
+} from "./admin-member-notify-service";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -160,6 +164,16 @@ const profileUpdateSchema = z.object({
   skillMarkdown: z.string().max(50000).optional(),
 });
 
+const adminMemberNotifySchema = z.object({
+  channel: z.enum(["email", "workspace_message"]),
+  subject: z.string().max(200).optional(),
+  body: z.string().max(8000).optional(),
+});
+
+const adminMemberContactPatchSchema = z.object({
+  phoneNumber: z.string().max(40).nullable().optional(),
+});
+
 async function assertAdmin(req: Request): Promise<void> {
   if (!req.userId) {
     const err = new Error("Sign in required");
@@ -184,6 +198,13 @@ function toIsoOrNull(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string") return value;
   return null;
+}
+
+function maskCredentialRef(ref: string | null | undefined): string {
+  const s = (ref ?? "").trim();
+  if (!s) return "";
+  if (s.length <= 8) return "· (stored)";
+  return `${s.slice(0, 3)}…${s.slice(-3)}`;
 }
 
 export async function registerRoutes(app: Express): Promise<void> {
@@ -734,6 +755,16 @@ export async function registerRoutes(app: Express): Promise<void> {
       db.select().from(userContextEntries).orderBy(asc(userContextEntries.createdAt)),
       db.select().from(adminEvents).orderBy(asc(adminEvents.createdAt)),
     ]);
+    const credsSafe = credsRows.map((c) => ({
+      id: c.id,
+      userId: c.userId,
+      provider: c.provider,
+      accountLabel: c.accountLabel,
+      status: c.status,
+      credentialRefPreview: maskCredentialRef(c.credentialRef),
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }));
     res.json({
       accounts: usersRows.map((u) => ({
         id: u.id,
@@ -745,6 +776,17 @@ export async function registerRoutes(app: Express): Promise<void> {
         profileMarkdown: u.profileMarkdown ?? null,
         relationshipMarkdown: u.relationshipMarkdown ?? null,
         skillMarkdown: u.skillMarkdown ?? null,
+        phoneNumber: u.phoneNumber ?? null,
+        integrations: credsRows
+          .filter((c) => c.userId === u.id)
+          .map((c) => ({
+            id: c.id,
+            provider: c.provider,
+            accountLabel: c.accountLabel,
+            status: c.status,
+            credentialRefPreview: maskCredentialRef(c.credentialRef),
+            updatedAt: c.updatedAt.toISOString(),
+          })),
       })),
       tasks: taskRows.map((t) => ({
         id: t.id,
@@ -756,10 +798,75 @@ export async function registerRoutes(app: Express): Promise<void> {
         updatedAt: t.updatedAt.toISOString(),
       })),
       surveys: surveyRows,
-      channelCredentials: credsRows,
+      channelCredentials: credsSafe,
       contextEntries: ctxRows,
       adminEvents: eventRows,
     });
+  });
+
+  app.post("/api/admin/members/:userId/notify-test", async (req: Request, res: Response) => {
+    try {
+      await assertAdmin(req);
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      return res.status(err.status ?? 500).json({ message: err.message ?? "Error" });
+    }
+    if (!req.userId) return res.status(401).json({ message: "Sign in required" });
+    const parsed = adminMemberNotifySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    const targetId = req.params.userId;
+    if (parsed.data.channel === "email") {
+      const out = await adminSendTestEmail({
+        targetUserId: targetId,
+        actorUserId: req.userId,
+        subject: parsed.data.subject,
+        body: parsed.data.body,
+      });
+      if (!out.ok) {
+        return res.status(out.status ?? 502).json({ message: out.reason });
+      }
+      return res.json({ ok: true as const, channel: "email", detail: out.detail });
+    }
+    const out = await adminSendTestWorkspaceMessage({
+      targetUserId: targetId,
+      actorUserId: req.userId,
+      body: parsed.data.body,
+    });
+    if (!out.ok) {
+      return res.status(out.status ?? 502).json({ message: out.reason });
+    }
+    return res.json({ ok: true as const, channel: "workspace_message", detail: out.detail });
+  });
+
+  app.patch("/api/admin/members/:userId/contact", async (req: Request, res: Response) => {
+    try {
+      await assertAdmin(req);
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      return res.status(err.status ?? 500).json({ message: err.message ?? "Error" });
+    }
+    const parsed = adminMemberContactPatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    if (parsed.data.phoneNumber === undefined) {
+      return res.status(400).json({ message: "phoneNumber is required (use null to clear)" });
+    }
+    const db = getDb();
+    if (!db) return res.status(503).json({ message: "Database is not configured" });
+    const rows = await db
+      .update(users)
+      .set({
+        phoneNumber: parsed.data.phoneNumber,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, req.params.userId))
+      .returning({ id: users.id, phoneNumber: users.phoneNumber });
+    const row = rows[0];
+    if (!row) return res.status(404).json({ message: "User not found" });
+    res.json({ user: row });
   });
 
   app.get("/api/ui-experiments", async (_req: Request, res: Response) => {
