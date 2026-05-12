@@ -45,6 +45,7 @@ export async function fetchDashboard(): Promise<DashboardPayload> {
     !data.profile ||
     !Array.isArray(data.tasks) ||
     !Array.isArray(data.people) ||
+    !Array.isArray(data.organizations) ||
     !data.workspaceSession ||
     !Array.isArray(data.workspaceMessages)
   ) {
@@ -127,6 +128,8 @@ export async function createTask(input: {
   title: string;
   description: string;
   rawSourceDoc?: string | null;
+  organizationId?: string | null;
+  deliveryChannels?: { kind: "email"; address: string; state?: string }[];
 }): Promise<Task> {
   const r = await fetch("/api/tasks", {
     method: "POST",
@@ -143,7 +146,9 @@ export async function createTask(input: {
 
 export async function updateTask(
   taskId: string,
-  patch: Partial<Pick<Task, "title" | "description" | "status">>,
+  patch: Partial<
+    Pick<Task, "title" | "description" | "status" | "organizationId" | "deliveryChannels">
+  >,
 ): Promise<Task> {
   const r = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
     method: "PUT",

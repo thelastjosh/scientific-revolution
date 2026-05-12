@@ -57,3 +57,8 @@ Tabbed operations interface for:
 - Brutalist monochrome aesthetics.
 - Monospace typography and sharp border-heavy layouts.
 - Chat-first composition with expandable operational panes.
+
+## 8. Federated agent gateway (network plug-in)
+
+Organizations may **register a multi-tenant agent runtime** (BYO or Sail-managed) to participate in Sail-mediated external messaging and automation. **OpenClaw is one supported `runtime_kind`; the contract is runtime-agnostic.** Sail remains the **hub** for registry, routing, tasks, canonical `communication_events` timeline, and approval queues. Any org using this path must register an agent endpoint and signing secret; see [ARCHITECTURE-AGENT-GATEWAY.md](ARCHITECTURE-AGENT-GATEWAY.md). External-user comms copy is **Sail-sourced** where possible (template API) so plugged-in agents do not drift from org branding and trust expectations.
+

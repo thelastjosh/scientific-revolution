@@ -64,6 +64,13 @@
       "when": 1777401000000,
       "tag": "0008_invite_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778500000000,
+      "tag": "0009_federated_agent_gateway",
+      "breakpoints": true
     }
   ]
 }

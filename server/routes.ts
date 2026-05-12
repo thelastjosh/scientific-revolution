@@ -46,7 +46,11 @@ import {
 } from "./invite-lifecycle-service";
 import { applyInviteContextToUser } from "./invite-application-service";
 import { sendInviteEmail, sendOnboardingFollowUpEmail } from "./email/onboarding-email-service";
+import { registerResendInboundWebhook } from "./email/resend-inbound-webhook";
+import { sendTaskHandoffEmailIfNeeded } from "./email/task-handoff-email";
 import { extractCvText } from "./onboarding-cv-service";
+import { registerNetworkRoutes } from "./network-routes";
+import { assertUserOrganizationMember } from "./task-organization";
 
 const patchBodySchema = z.object({
   enabled: z.boolean().optional(),
@@ -124,17 +128,27 @@ const taskExtractSchema = z.object({
   rawSourceDoc: z.string().min(1).max(50000),
 });
 
+const deliveryChannelEntrySchema = z.object({
+  kind: z.enum(["email"]),
+  address: z.string().email(),
+  state: z.string().max(64).optional(),
+});
+
 const taskCreateSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(10000),
   rawSourceDoc: z.string().max(50000).nullable().optional(),
   sourceSessionId: z.string().nullable().optional(),
+  organizationId: z.string().min(1).max(64).nullable().optional(),
+  deliveryChannels: z.array(deliveryChannelEntrySchema).max(10).optional(),
 });
 
 const taskUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).max(10000).optional(),
   status: z.enum(["draft", "open", "completed", "archived"]).optional(),
+  organizationId: z.string().min(1).max(64).nullable().optional(),
+  deliveryChannels: z.array(deliveryChannelEntrySchema).max(10).optional(),
 });
 
 const profileUpdateSchema = z.object({
@@ -596,6 +610,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         description: parsed.data.description,
         rawSourceDoc: parsed.data.rawSourceDoc ?? null,
         sourceSessionId: parsed.data.sourceSessionId ?? null,
+        organizationId: parsed.data.organizationId ?? null,
+        deliveryChannels: parsed.data.deliveryChannels,
       });
       res.status(201).json({
         task: {
@@ -618,6 +634,10 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
     } catch (e: unknown) {
       console.error("[tasks/create]", e);
+      const err = e as { status?: number; message?: string };
+      if (typeof err.status === "number") {
+        return res.status(err.status).json({ message: err.message ?? "Error" });
+      }
       res.status(500).json({ message: "Failed to create task" });
     }
   });
@@ -630,18 +650,52 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
     const db = getDb();
     if (!db) return res.status(503).json({ message: "Database is not configured" });
+
+    const existingRows = await db
+      .select()
+      .from(networkTasks)
+      .where(and(eq(networkTasks.id, req.params.id), eq(networkTasks.ownerUserId, req.userId)))
+      .limit(1);
+    const existing = existingRows[0];
+    if (!existing) return res.status(404).json({ message: "Task not found" });
+
+    try {
+      if (parsed.data.organizationId) {
+        await assertUserOrganizationMember(req.userId, parsed.data.organizationId);
+      }
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      return res.status(err.status ?? 403).json({ message: err.message ?? "Forbidden" });
+    }
+
+    const setPayload: {
+      updatedAt: Date;
+      title?: string;
+      description?: string;
+      status?: (typeof networkTasks.$inferSelect)["status"];
+      organizationId?: string | null;
+      deliveryChannels?: { kind: string; address: string; state?: string }[];
+    } = { updatedAt: new Date() };
+    if (parsed.data.title !== undefined) setPayload.title = parsed.data.title;
+    if (parsed.data.description !== undefined) setPayload.description = parsed.data.description;
+    if (parsed.data.status !== undefined) setPayload.status = parsed.data.status;
+    if (parsed.data.organizationId !== undefined) setPayload.organizationId = parsed.data.organizationId;
+    if (parsed.data.deliveryChannels !== undefined) setPayload.deliveryChannels = parsed.data.deliveryChannels;
+
     const rows = await db
       .update(networkTasks)
-      .set({
-        title: parsed.data.title,
-        description: parsed.data.description,
-        status: parsed.data.status,
-        updatedAt: new Date(),
-      })
+      .set(setPayload)
       .where(and(eq(networkTasks.id, req.params.id), eq(networkTasks.ownerUserId, req.userId)))
       .returning();
     const row = rows[0];
     if (!row) return res.status(404).json({ message: "Task not found" });
+
+    try {
+      await sendTaskHandoffEmailIfNeeded({ task: row, previousStatus: existing.status });
+    } catch (e) {
+      console.error("[task-handoff]", e);
+    }
+
     res.json({
       task: {
         id: row.id,
@@ -733,4 +787,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
     res.json({ experiment: updated });
   });
+
+  registerNetworkRoutes(app);
+  registerResendInboundWebhook(app);
 }

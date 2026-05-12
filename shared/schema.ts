@@ -303,3 +303,69 @@ export const adminEvents = pgTable("admin_events", {
   payload: jsonb("payload").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Federated multi-tenant agent gateway registered per org (BYO or Sail-managed). */
+export const organizationAgents = pgTable("organization_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id", { length: 64 })
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  runtimeKind: varchar("runtime_kind", { length: 32 }).notNull(),
+  baseUrl: text("base_url").notNull(),
+  signingSecret: varchar("signing_secret", { length: 128 }).notNull(),
+  capabilityManifest: jsonb("capability_manifest")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  status: varchar("status", { length: 24 }).notNull().default("pending"),
+  managedBy: varchar("managed_by", { length: 16 }).notNull().default("byo"),
+  networkApiLevel: varchar("network_api_level", { length: 16 }).notNull().default("1"),
+  lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("organization_agents_org_uidx").on(t.organizationId)]);
+
+export type OrganizationAgent = typeof organizationAgents.$inferSelect;
+
+/** Canonical append-only timeline for Sail-mediated external comms. */
+export const communicationEvents = pgTable("communication_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id", { length: 64 })
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  traceId: varchar("trace_id", { length: 64 }).notNull(),
+  dedupeKey: varchar("dedupe_key", { length: 256 }).notNull(),
+  direction: varchar("direction", { length: 16 }).notNull(),
+  channel: varchar("channel", { length: 32 }).notNull(),
+  threadKey: text("thread_key").notNull(),
+  taskId: varchar("task_id", { length: 32 }).references(() => networkTasks.id, {
+    onDelete: "set null",
+  }),
+  actorExternalHandle: text("actor_external_handle"),
+  body: text("body").notNull().default(""),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("communication_events_dedupe_uidx").on(t.dedupeKey)]);
+
+export type CommunicationEvent = typeof communicationEvents.$inferSelect;
+
+/** Gate for sensitive cross-network or high-risk sends (agent requests, human resolves). */
+export const networkSensitiveApprovals = pgTable("network_sensitive_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id", { length: 64 })
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  traceId: varchar("trace_id", { length: 64 }).notNull(),
+  requestKind: varchar("request_kind", { length: 64 }).notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  status: varchar("status", { length: 24 }).notNull().default("pending"),
+  resolutionNote: text("resolution_note"),
+  resolvedByUserId: varchar("resolved_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+export type NetworkSensitiveApproval = typeof networkSensitiveApprovals.$inferSelect;

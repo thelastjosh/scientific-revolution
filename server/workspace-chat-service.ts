@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { chatMessages, chatSessions, networkTasks } from "@shared/schema";
 import type { WorkspaceChatMessage } from "@shared/network-feed";
 import { getDb } from "./db";
+import { assertUserOrganizationMember } from "./task-organization";
 
 export function extractTasksFromRawDoc(raw: string): Array<{ title: string; description: string }> {
   const lines = raw
@@ -158,20 +159,28 @@ export async function createTaskFromDraft(input: {
   description: string;
   rawSourceDoc?: string | null;
   sourceSessionId?: string | null;
+  organizationId?: string | null;
+  deliveryChannels?: { kind: string; address: string; state?: string }[];
 }) {
   const db = getDb();
   if (!db) throw new Error("Database is not configured");
+  if (input.organizationId) {
+    await assertUserOrganizationMember(input.ownerUserId, input.organizationId);
+  }
   const taskId = `T-${Math.floor(Math.random() * 900000 + 100000)}`;
+  const deliveryChannels = input.deliveryChannels?.length ? input.deliveryChannels : [];
   const rows = await db
     .insert(networkTasks)
     .values({
       id: taskId,
+      organizationId: input.organizationId ?? null,
       ownerUserId: input.ownerUserId,
       title: input.title,
       description: input.description,
       rawSourceDoc: input.rawSourceDoc ?? null,
       sourceSessionId: input.sourceSessionId ?? null,
       status: "draft",
+      deliveryChannels,
     })
     .returning();
   return rows[0]!;

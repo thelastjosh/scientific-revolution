@@ -10,6 +10,7 @@ import {
   saveProfileDraft,
   sendWorkspaceChat,
   updateTask,
+  type DashboardOrganization,
   type DashboardProfile,
 } from "@/lib/dashboard-api";
 import type { Task } from "@shared/network-feed";
@@ -25,6 +26,8 @@ export default function DashboardPage() {
   const [draft, setDraft] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [rawDoc, setRawDoc] = useState("");
+  const [newTaskNotifyEmail, setNewTaskNotifyEmail] = useState("");
+  const [newTaskOrgId, setNewTaskOrgId] = useState<string>("");
   const [peopleQuery, setPeopleQuery] = useState("");
 
   const dashboardQuery = useQuery({
@@ -35,6 +38,13 @@ export default function DashboardPage() {
   const profile = dashboardQuery.data?.profile ?? null;
   const tasks = dashboardQuery.data?.tasks ?? [];
   const people = dashboardQuery.data?.people ?? [];
+  const organizations = dashboardQuery.data?.organizations ?? [];
+
+  useEffect(() => {
+    if (organizations.length > 0 && !newTaskOrgId) {
+      setNewTaskOrgId(organizations[0]!.id);
+    }
+  }, [organizations, newTaskOrgId]);
   const workspaceSession = dashboardQuery.data?.workspaceSession ?? null;
   const messages = dashboardQuery.data?.workspaceMessages ?? [];
   const isAdmin = dashboardQuery.data?.isAdmin ?? false;
@@ -105,7 +115,9 @@ export default function DashboardPage() {
       patch,
     }: {
       id: string;
-      patch: Partial<Pick<Task, "title" | "description" | "status">>;
+      patch: Partial<
+        Pick<Task, "title" | "description" | "status" | "organizationId" | "deliveryChannels">
+      >;
     }) => updateTask(id, patch),
     onSuccess: (updated) => {
       queryClient.setQueryData(
@@ -308,6 +320,36 @@ export default function DashboardPage() {
                     <p className="text-xs whitespace-pre-wrap">
                       {extractMutation.data.description}
                     </p>
+                    {organizations.length > 0 ? (
+                      <label className="block space-y-1">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Organization (for comms timeline)
+                        </span>
+                        <select
+                          value={newTaskOrgId}
+                          onChange={(e) => setNewTaskOrgId(e.target.value)}
+                          className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                        >
+                          {organizations.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    <label className="block space-y-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Notify email (optional)
+                      </span>
+                      <input
+                        type="email"
+                        value={newTaskNotifyEmail}
+                        onChange={(e) => setNewTaskNotifyEmail(e.target.value)}
+                        placeholder="partner@example.com"
+                        className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() =>
@@ -315,6 +357,11 @@ export default function DashboardPage() {
                           title: extractMutation.data!.title,
                           description: extractMutation.data!.description,
                           rawSourceDoc: rawDoc,
+                          organizationId: newTaskOrgId || null,
+                          deliveryChannels:
+                            newTaskNotifyEmail.trim().length > 0
+                              ? [{ kind: "email", address: newTaskNotifyEmail.trim() }]
+                              : undefined,
                         })
                       }
                       className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
@@ -348,6 +395,7 @@ export default function DashboardPage() {
               {selectedTask ? (
                 <TaskEditor
                   task={selectedTask}
+                  organizations={organizations}
                   onSave={(patch) =>
                     updateTaskMutation.mutate({ id: selectedTask.id, patch })
                   }
@@ -558,20 +606,46 @@ function ManifestEditorBlock({
 
 function TaskEditor({
   task,
+  organizations,
   onSave,
   saving,
 }: {
   task: Task;
-  onSave: (patch: Partial<Pick<Task, "title" | "description" | "status">>) => void;
+  organizations: DashboardOrganization[];
+  onSave: (
+    patch: Partial<
+      Pick<Task, "title" | "description" | "status" | "organizationId" | "deliveryChannels">
+    >,
+  ) => void;
   saving: boolean;
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [status, setStatus] = useState(task.status);
+  const [notifyEmail, setNotifyEmail] = useState(
+    () => task.deliveryChannels.find((c) => c.kind === "email")?.address ?? "",
+  );
+  const [organizationId, setOrganizationId] = useState(task.organizationId ?? "");
+
+  useEffect(() => {
+    setTitle(task.title);
+    setDescription(task.description);
+    setStatus(task.status);
+    setNotifyEmail(task.deliveryChannels.find((c) => c.kind === "email")?.address ?? "");
+    setOrganizationId(task.organizationId ?? "");
+  }, [task]);
+
+  const deliveryChannels =
+    notifyEmail.trim().length > 0 ? [{ kind: "email" as const, address: notifyEmail.trim() }] : [];
+
   return (
     <div className="border border-border p-3 space-y-2">
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
         Edit selected task
+      </p>
+      <p className="text-[10px] text-muted-foreground leading-relaxed">
+        When you set status to <span className="text-foreground">open</span>, Sail sends a handoff email
+        to the notify address (if Resend is configured and the task is not already handed off).
       </p>
       <input
         value={title}
@@ -594,10 +668,49 @@ function TaskEditor({
         <option value="completed">completed</option>
         <option value="archived">archived</option>
       </select>
+      {organizations.length > 0 ? (
+        <label className="block space-y-1">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Organization
+          </span>
+          <select
+            value={organizationId}
+            onChange={(e) => setOrganizationId(e.target.value)}
+            className="w-full border border-border bg-transparent px-3 py-2 text-xs"
+          >
+            <option value="">(none)</option>
+            {organizations.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <label className="block space-y-1">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Notify email
+        </span>
+        <input
+          type="email"
+          value={notifyEmail}
+          onChange={(e) => setNotifyEmail(e.target.value)}
+          placeholder="leave empty to clear"
+          className="w-full border border-border bg-transparent px-3 py-2 text-xs"
+        />
+      </label>
       <button
         type="button"
         disabled={saving}
-        onClick={() => onSave({ title, description, status })}
+        onClick={() =>
+          onSave({
+            title,
+            description,
+            status,
+            organizationId: organizationId || null,
+            deliveryChannels,
+          })
+        }
         className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider"
       >
         Save task

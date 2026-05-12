@@ -8,6 +8,8 @@ Current backlog after the Pathway A agentic dashboard rebuild.
 
 **Goal:** Move from metadata-only channel support to live delivery adapters.
 
+**Note:** Federated org agent registry, canonical comms timeline, and hub↔agent contracts are in [ARCHITECTURE-AGENT-GATEWAY.md](ARCHITECTURE-AGENT-GATEWAY.md) (implemented). Task **open** handoff plus **Resend inbound** replies are wired (see README env vars); additional providers remain below.
+
 **Scope**
 - Gmail/Outlook send + status webhooks.
 - Slack/Teams DM delivery + thread updates.
@@ -15,20 +17,7 @@ Current backlog after the Pathway A agentic dashboard rebuild.
 
 ---
 
-## 2. Provider evaluation document
-
-**Goal:** Complete the OpenClaw/alternatives evaluation before building provider-specific integrations.
-
-**Scope**
-- auth/RBAC fit,
-- data residency + secret handling,
-- retry/queue semantics,
-- observability and operational burden,
-- final recommendation and integration boundaries.
-
----
-
-## 3. Workspace extraction quality
+## 2. Workspace extraction quality
 
 **Goal:** Improve raw-doc task extraction quality and editing ergonomics.
 
@@ -39,7 +28,7 @@ Current backlog after the Pathway A agentic dashboard rebuild.
 
 ---
 
-## 4. Admin RBAC hardening
+## 3. Admin RBAC hardening
 
 **Goal:** Replace shared-secret-only access with role-based authorization and audit policies.
 
@@ -50,4 +39,4 @@ Current backlog after the Pathway A agentic dashboard rebuild.
 
 ---
 
-*Last updated: Pathway A rebuild completion.*
+*Last updated: task email Resend hub (handoff + inbound webhook).*
