@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpCircle, Plus } from "lucide-react";
+import { ArrowUpCircle, Copy, Plus } from "lucide-react";
 import {
   createTask,
   extractTaskDraft,
@@ -15,6 +15,19 @@ import {
 } from "@/lib/dashboard-api";
 import type { Task } from "@shared/network-feed";
 import { useAuth } from "@/features/auth/auth-context";
+import { toast } from "@/hooks/use-toast";
+import {
+  createInvite,
+  listMyInvites,
+  revokeInvite,
+} from "@/lib/onboarding-api";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type Pane = "profile" | "people" | "tasks";
 
@@ -29,6 +42,10 @@ export default function DashboardPage() {
   const [newTaskNotifyEmail, setNewTaskNotifyEmail] = useState("");
   const [newTaskOrgId, setNewTaskOrgId] = useState<string>("");
   const [peopleQuery, setPeopleQuery] = useState("");
+  const [invitesOpen, setInvitesOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteOrgId, setInviteOrgId] = useState("");
+  const [inviteMaxUses, setInviteMaxUses] = useState("1");
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard"],
@@ -45,6 +62,12 @@ export default function DashboardPage() {
       setNewTaskOrgId(organizations[0]!.id);
     }
   }, [organizations, newTaskOrgId]);
+
+  useEffect(() => {
+    if (invitesOpen && organizations.length > 0 && !inviteOrgId) {
+      setInviteOrgId(organizations[0]!.id);
+    }
+  }, [invitesOpen, organizations, inviteOrgId]);
   const workspaceSession = dashboardQuery.data?.workspaceSession ?? null;
   const messages = dashboardQuery.data?.workspaceMessages ?? [];
   const isAdmin = dashboardQuery.data?.isAdmin ?? false;
@@ -133,6 +156,72 @@ export default function DashboardPage() {
     },
   });
 
+  const invitesQuery = useQuery({
+    queryKey: ["my-invites"],
+    queryFn: listMyInvites,
+    enabled: invitesOpen,
+  });
+
+  const createInviteMutation = useMutation({
+    mutationFn: () =>
+      createInvite({
+        email: inviteEmail.trim() || null,
+        organizationId: inviteOrgId.trim() || null,
+        maxUses: Number(inviteMaxUses) || 1,
+        inviterRelationshipLabel: "inviter",
+        inviterContextSummary: "Invite created from workspace dashboard.",
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: ["my-invites"] });
+      setInviteEmail("");
+      const url =
+        data.emailResult?.inviteUrl ??
+        `${window.location.origin}/?invite=${encodeURIComponent(data.invite.token)}`;
+      toast({
+        title: "Invite created",
+        description: url,
+      });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Could not create invite",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeInviteMutation = useMutation({
+    mutationFn: (token: string) => revokeInvite(token),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["my-invites"] });
+      toast({ title: "Invite revoked" });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: "Revoke failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const copyInviteLink = (token: string) => {
+    const url = `${window.location.origin}/?invite=${encodeURIComponent(token)}`;
+    void navigator.clipboard.writeText(url).then(
+      () => {
+        toast({ title: "Copied", description: "Invite link copied to clipboard." });
+      },
+      () => {
+        toast({
+          title: "Copy failed",
+          description: url,
+          variant: "destructive",
+        });
+      },
+    );
+  };
+
   if (dashboardQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground font-mono p-6">
@@ -199,6 +288,13 @@ export default function DashboardPage() {
             className={navButtonClass}
           >
             Tasks
+          </button>
+          <button
+            type="button"
+            onClick={() => setInvitesOpen(true)}
+            className={navButtonClass}
+          >
+            Invites
           </button>
           {isAdmin ? (
             <Link href="/admin">
@@ -406,6 +502,131 @@ export default function DashboardPage() {
           ) : null}
         </aside>
       </div>
+
+      <Sheet open={invitesOpen} onOpenChange={setInvitesOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md border-l border-border font-mono overflow-y-auto flex flex-col gap-4"
+        >
+          <SheetHeader className="text-left space-y-1 pr-8">
+            <SheetTitle className="text-xs uppercase tracking-widest font-normal">
+              Invite links
+            </SheetTitle>
+            <SheetDescription className="text-xs font-mono text-muted-foreground normal-case">
+              Create shareable links for onboarding. Recipients open the link on the home page to
+              start with your invite context.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-2 border border-border p-3">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">New invite</p>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Invitee email (optional)"
+              className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+            />
+            {organizations.length > 0 ? (
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Organization
+                </span>
+                <select
+                  value={inviteOrgId}
+                  onChange={(e) => setInviteOrgId(e.target.value)}
+                  className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+                >
+                  <option value="">(none)</option>
+                  {organizations.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <input
+                value={inviteOrgId}
+                onChange={(e) => setInviteOrgId(e.target.value)}
+                placeholder="Organization ID (optional)"
+                className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+              />
+            )}
+            <input
+              value={inviteMaxUses}
+              onChange={(e) => setInviteMaxUses(e.target.value)}
+              placeholder="Max uses"
+              className="w-full border border-border bg-transparent px-2 py-2 text-xs"
+            />
+            <button
+              type="button"
+              disabled={createInviteMutation.isPending}
+              onClick={() => createInviteMutation.mutate()}
+              className="w-full border border-border px-3 py-2 text-xs uppercase tracking-wider hover:bg-secondary/50 disabled:opacity-50"
+            >
+              {createInviteMutation.isPending ? "Creating…" : "Create invite"}
+            </button>
+          </div>
+
+          <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
+              Your invites
+            </p>
+            {invitesQuery.isLoading ? (
+              <p className="text-xs text-muted-foreground">Loading…</p>
+            ) : invitesQuery.isError ? (
+              <p className="text-xs text-destructive">
+                {(invitesQuery.error as Error).message ?? "Could not load invites"}
+              </p>
+            ) : (
+              <>
+                {(invitesQuery.data ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No invites yet.</p>
+                ) : (
+                  <ul className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
+                    {(invitesQuery.data ?? []).map((invite) => (
+                      <li
+                        key={invite.token}
+                        className="border border-border p-2 space-y-2 text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              {String(invite.validity ?? "unknown")}
+                            </p>
+                            <p className="font-mono break-all text-[11px] leading-snug mt-0.5">
+                              {invite.token}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyInviteLink(invite.token)}
+                            className="inline-flex items-center gap-1 border border-border px-2 py-1 uppercase tracking-wider hover:bg-secondary/50"
+                          >
+                            <Copy className="w-3 h-3" aria-hidden />
+                            Copy link
+                          </button>
+                          <button
+                            type="button"
+                            disabled={revokeInviteMutation.isPending}
+                            onClick={() => revokeInviteMutation.mutate(invite.token)}
+                            className="border border-border px-2 py-1 uppercase tracking-wider hover:bg-destructive/10 disabled:opacity-50"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

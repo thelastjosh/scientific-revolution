@@ -35,15 +35,12 @@ import { OnboardingIntro } from "./OnboardingIntro";
 import { useAuth } from "@/features/auth/auth-context";
 import {
   applyInvite,
-  createInvite as createInviteApi,
   extractCvFromUpload,
   fetchOnboardingBootstrap,
   graduateOnboardingToWorkspace,
   type LinkDerivedProfile,
-  listMyInvites,
   postOnboardingChat,
   postProfileFromLink,
-  revokeInvite as revokeInviteApi,
   saveOnboardingContext,
   validateInvite,
 } from "@/lib/onboarding-api";
@@ -118,12 +115,6 @@ export function HomeChatPanel({
     "idle" | "uploading" | "parsed" | "error"
   >("idle");
   const [cvUploadError, setCvUploadError] = useState<string | null>(null);
-  const [myInvites, setMyInvites] = useState<
-    Array<Record<string, unknown> & { token: string; validity?: string }>
-  >([]);
-  const [newInviteEmail, setNewInviteEmail] = useState("");
-  const [newInviteOrganizationId, setNewInviteOrganizationId] = useState("");
-  const [newInviteMaxUses, setNewInviteMaxUses] = useState("1");
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [linkDerivedProfile, setLinkDerivedProfile] =
     useState<LinkDerivedProfile | null>(null);
@@ -437,42 +428,6 @@ export function HomeChatPanel({
         variant: "destructive",
       });
     }
-  };
-
-  const refreshMyInvites = useCallback(async () => {
-    if (!user) return;
-    try {
-      const invites = await listMyInvites();
-      setMyInvites(invites);
-    } catch {
-      // ignore
-    }
-  }, [user]);
-
-  useEffect(() => {
-    void refreshMyInvites();
-  }, [refreshMyInvites]);
-
-  const createInviteFromHome = async () => {
-    const created = await createInviteApi({
-      email: newInviteEmail || null,
-      organizationId: newInviteOrganizationId || null,
-      maxUses: Number(newInviteMaxUses) || 1,
-      inviterRelationshipLabel: "inviter",
-      inviterContextSummary: "Invite generated from onboarding home.",
-    });
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: id(),
-        role: "assistant",
-        text: `Invite created: ${created.emailResult?.inviteUrl ?? `/?invite=${created.invite.token}`}`,
-      },
-    ]);
-    setNewInviteEmail("");
-    setNewInviteOrganizationId("");
-    setNewInviteMaxUses("1");
-    await refreshMyInvites();
   };
 
   const profileSummary = useMemo(
@@ -918,60 +873,6 @@ export function HomeChatPanel({
           <span className="opacity-40">Scientific Revolution · Sail v0</span>
         </div>
       </div>
-      {user ? (
-        <div className="shrink-0 border-t border-border px-4 py-3 bg-card/20 space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Invite links</p>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input
-              value={newInviteEmail}
-              onChange={(e) => setNewInviteEmail(e.target.value)}
-              placeholder="Invite email (optional)"
-              className="border border-border bg-transparent px-2 py-1.5 text-xs"
-            />
-            <input
-              value={newInviteOrganizationId}
-              onChange={(e) => setNewInviteOrganizationId(e.target.value)}
-              placeholder="Organization ID (e.g. unicef)"
-              className="border border-border bg-transparent px-2 py-1.5 text-xs"
-            />
-            <input
-              value={newInviteMaxUses}
-              onChange={(e) => setNewInviteMaxUses(e.target.value)}
-              placeholder="Max uses"
-              className="border border-border bg-transparent px-2 py-1.5 text-xs"
-            />
-            <button
-              type="button"
-              onClick={() => void createInviteFromHome()}
-              className="border border-border px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-secondary/50"
-            >
-              Create invite
-            </button>
-          </div>
-          <div className="space-y-1">
-            {myInvites.slice(-5).map((invite) => (
-              <div
-                key={invite.token}
-                className="flex items-center justify-between text-xs border border-border px-2 py-1.5"
-              >
-                <span className="truncate pr-2">
-                  {String(invite.token)} · {String(invite.validity ?? "unknown")}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await revokeInviteApi(String(invite.token));
-                    await refreshMyInvites();
-                  }}
-                  className="border border-border px-2 py-1 uppercase tracking-wider"
-                >
-                  Revoke
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
       <ProfileSummaryDrawer
         open={profileDrawerOpen}
         onOpenChange={setProfileDrawerOpen}
