@@ -9,6 +9,7 @@ import { InlineProfilePreview } from "./InlineProfilePreview";
 import { ProfilePreviewFollowUp } from "./ProfilePreviewFollowUp";
 import { shouldShowOnboardingBlock } from "./onboarding-intent";
 import { shouldShowInChatProfilePreview } from "./onboarding-interview-end";
+import { WhatIsScientificRevolutionBlock } from "./WhatIsScientificRevolutionBlock";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -25,8 +26,11 @@ import {
 import {
   HELP_ME_ONBOARD_PROMPT,
   isHomeOpeningMessageVariant,
+  isUserWhatIsScientificRevolutionMessage,
   pickHomeOpeningMessage,
   splitDisplayNameForRegister,
+  whatIsScientificRevolutionReplyPlain,
+  WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT,
   type HomeOpeningMessageVariant,
   USER_EDIT_PROFILE_MESSAGE,
 } from "@shared/onboarding-opening";
@@ -51,6 +55,8 @@ export type ChatMessage = {
   role: "assistant" | "user";
   text: string;
   richOnboarding?: boolean;
+  /** Cached “What is Scientific Revolution?” explainer + interview MCQ */
+  whatIsSrBlock?: boolean;
   authCardMode?: "login" | "register";
   postAuthActions?: boolean;
   /** Rich card: in-chat profile summary at end of interview onboarding */
@@ -66,7 +72,7 @@ function id() {
 }
 
 const EXAMPLE_PROMPTS = [
-  { label: "What is Scientific Revolution?", value: "What is Scientific Revolution?" },
+  { label: WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT, value: WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT },
   { label: "Help me onboard", value: HELP_ME_ONBOARD_PROMPT },
 ] as const;
 
@@ -217,6 +223,25 @@ export function HomeChatPanel({
     ]);
   };
 
+  const appendOnboardingIntroBlock = () => {
+    setMessages((prev) => [
+      ...prev,
+      { id: id(), role: "assistant", text: "", richOnboarding: true },
+    ]);
+  };
+
+  const appendWhatIsSrBlock = () => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: id(),
+        role: "assistant",
+        text: whatIsScientificRevolutionReplyPlain(),
+        whatIsSrBlock: true,
+      },
+    ]);
+  };
+
   const finishAuthFlow = async () => {
     setMessages((prev) => [
       ...prev,
@@ -285,10 +310,16 @@ export function HomeChatPanel({
       setMessages((prev) => [...prev, userMsg]);
       setChatLoading(true);
       await new Promise((r) => setTimeout(r, 520));
-      setMessages((prev) => [
-        ...prev,
-        { id: id(), role: "assistant", text: "", richOnboarding: true },
-      ]);
+      appendOnboardingIntroBlock();
+      setChatLoading(false);
+      return;
+    }
+
+    if (isUserWhatIsScientificRevolutionMessage(text)) {
+      setMessages((prev) => [...prev, userMsg]);
+      setChatLoading(true);
+      await new Promise((r) => setTimeout(r, 520));
+      appendWhatIsSrBlock();
       setChatLoading(false);
       return;
     }
@@ -336,10 +367,7 @@ export function HomeChatPanel({
         return withAssistant;
       });
       if (shouldShowOnboardingBlock(text)) {
-        setMessages((prev) => [
-          ...prev,
-          { id: id(), role: "assistant", text: "", richOnboarding: true },
-        ]);
+        appendOnboardingIntroBlock();
       }
     } catch (e) {
       setChatError((e as Error).message);
@@ -584,6 +612,24 @@ export function HomeChatPanel({
         )}
         {ready &&
           messages.map((m) => {
+            if (m.role === "assistant" && m.whatIsSrBlock) {
+              return (
+                <div key={m.id} className="text-left">
+                  <WhatIsScientificRevolutionBlock
+                    messageKey={m.id}
+                    disabled={chatLoading || linkProfileLoading}
+                    onTypewriterProgress={scheduleScrollToBottom}
+                    onHelpMeOnboard={() => {
+                      if (chatLoading || linkProfileLoading) return;
+                      appendOnboardingIntroBlock();
+                    }}
+                    onSelectInterviewOption={(value) => {
+                      void submitUserText(value);
+                    }}
+                  />
+                </div>
+              );
+            }
             if (m.role === "assistant" && m.richOnboarding) {
               return (
                 <div key={m.id} className="text-left">

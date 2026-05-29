@@ -3,6 +3,11 @@
  * assistant’s reply looks like a wrap-up / handoff (conservative; avoids
  * showing on the first few turns).
  */
+import {
+  interviewEntryMcqUserTexts,
+  WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT,
+} from "@shared/onboarding-opening";
+
 const WRAP_UP_PATTERNS = [
   /profile (so far|summary|sketch|preview|snapshot)/i,
   /here['']?s (a |your )?(quick |brief )?(recap|summary|overview|sketch)/i,
@@ -17,10 +22,16 @@ function interviewFlowStarted(
   userTurns: { text: string }[],
   helpPrompt: string,
 ): boolean {
-  return userTurns.some(
-    (t) =>
-      t.text.trim() === "Continue interview" || t.text.trim() === helpPrompt,
-  );
+  const mcqTexts = interviewEntryMcqUserTexts();
+  return userTurns.some((t) => {
+    const trimmed = t.text.trim();
+    return (
+      trimmed === "Continue interview" ||
+      trimmed === helpPrompt ||
+      trimmed === WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT ||
+      mcqTexts.includes(trimmed)
+    );
+  });
 }
 
 export function shouldShowInChatProfilePreview(

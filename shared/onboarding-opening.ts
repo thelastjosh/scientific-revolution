@@ -51,6 +51,62 @@ export function splitDisplayNameForRegister(displayName: string): {
 /** Example prompt; when sent, the client shows the prepared SR onboarding block (no LLM). */
 export const HELP_ME_ONBOARD_PROMPT = "Help me onboard";
 
+/** Example prompt; when sent, the client shows a cached SR explainer + interview MCQ (no LLM). */
+export const WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT = "What is Scientific Revolution?";
+
+export function isUserWhatIsScientificRevolutionMessage(text: string): boolean {
+  return text.trim().toLowerCase() === WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT.toLowerCase();
+}
+
+/** Cached explainer body (plain text; rich UI adds buttons below). */
+export const WHAT_IS_SR_REPLY_TEXT = [
+  "Scientific Revolution (Sail) is a chat-first coordination platform for volunteer-driven, mission-aligned work.",
+  "",
+  "You start on the home chat to build your profile and context. When you're ready, you graduate into a workspace dashboard where chat, people, and tasks live together.",
+  "",
+  "Tasks are drafted from real source material—notes, transcripts, email threads—and handed off through channels like email while tracking stays in Sail.",
+  "",
+  "There is no reputation scoring. The focus is clear coordination: who you are, what you want to contribute, and what work should happen next.",
+].join("\n");
+
+/** First interview step surfaced immediately after the SR explainer. */
+export const INTERVIEW_ENTRY_MCQ = {
+  question: "What best describes why you're here?",
+  options: [
+    {
+      label: "Volunteer or mission-aligned work",
+      value: "I'm here for volunteer or mission-aligned work.",
+    },
+    {
+      label: "Research or technical contribution",
+      value: "I'm here to contribute research or technical skills.",
+    },
+    {
+      label: "Organizing or coordinating others",
+      value: "I'm here to organize or coordinate work.",
+    },
+    {
+      label: "Just exploring for now",
+      value: "I'm exploring what Scientific Revolution can do.",
+    },
+  ],
+} as const;
+
+export function interviewEntryMcqUserTexts(): string[] {
+  return INTERVIEW_ENTRY_MCQ.options.map((o) => o.value);
+}
+
+/** Plain-text reply for API cache / transcript when rich UI is unavailable. */
+export function whatIsScientificRevolutionReplyPlain(): string {
+  const optionLines = INTERVIEW_ENTRY_MCQ.options.map((o) => `- ${o.label}`).join("\n");
+  return [
+    WHAT_IS_SR_REPLY_TEXT,
+    "",
+    INTERVIEW_ENTRY_MCQ.question,
+    optionLines,
+  ].join("\n");
+}
+
 function salutationLine(firstName: string): string {
   const hour = new Date().getUTCHours();
   if (hour >= 5 && hour < 12) return `Good morning, ${firstName}.`;

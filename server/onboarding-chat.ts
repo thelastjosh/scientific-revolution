@@ -5,6 +5,8 @@ import {
   EDIT_PROFILE_AGENT_REPLY,
   isHomeOpeningMessageVariant,
   isUserEditProfileMessage,
+  isUserWhatIsScientificRevolutionMessage,
+  whatIsScientificRevolutionReplyPlain,
 } from "@shared/onboarding-opening";
 import { openingMessageFromInvite } from "./onboarding-invite-service";
 import {
@@ -70,6 +72,9 @@ export async function completeOnboardingReply(
   }
   if (lastUser && isUserEditProfileMessage(lastUser.content)) {
     return EDIT_PROFILE_AGENT_REPLY;
+  }
+  if (lastUser && isUserWhatIsScientificRevolutionMessage(lastUser.content)) {
+    return whatIsScientificRevolutionReplyPlain();
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
