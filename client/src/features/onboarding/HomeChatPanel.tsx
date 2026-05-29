@@ -10,6 +10,7 @@ import { ProfilePreviewFollowUp } from "./ProfilePreviewFollowUp";
 import { shouldShowOnboardingBlock } from "./onboarding-intent";
 import { shouldShowInChatProfilePreview } from "./onboarding-interview-end";
 import { WhatIsScientificRevolutionBlock } from "./WhatIsScientificRevolutionBlock";
+import { WhatIsSrOriginsBlock } from "./WhatIsSrOriginsBlock";
 import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -26,10 +27,13 @@ import {
 import {
   HELP_ME_ONBOARD_PROMPT,
   isHomeOpeningMessageVariant,
+  isUserSrKnowMoreMessage,
   isUserWhatIsScientificRevolutionMessage,
   pickHomeOpeningMessage,
   splitDisplayNameForRegister,
+  srKnowMoreReplyPlain,
   whatIsScientificRevolutionReplyPlain,
+  SR_KNOW_MORE_PROMPT,
   WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT,
   type HomeOpeningMessageVariant,
   USER_EDIT_PROFILE_MESSAGE,
@@ -57,6 +61,8 @@ export type ChatMessage = {
   richOnboarding?: boolean;
   /** Cached “What is Scientific Revolution?” explainer + interview MCQ */
   whatIsSrBlock?: boolean;
+  /** Cached SR origins story (after “know more”) */
+  whatIsSrOriginsBlock?: boolean;
   authCardMode?: "login" | "register";
   postAuthActions?: boolean;
   /** Rich card: in-chat profile summary at end of interview onboarding */
@@ -242,6 +248,18 @@ export function HomeChatPanel({
     ]);
   };
 
+  const appendWhatIsSrOriginsBlock = () => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: id(),
+        role: "assistant",
+        text: srKnowMoreReplyPlain(),
+        whatIsSrOriginsBlock: true,
+      },
+    ]);
+  };
+
   const finishAuthFlow = async () => {
     setMessages((prev) => [
       ...prev,
@@ -320,6 +338,15 @@ export function HomeChatPanel({
       setChatLoading(true);
       await new Promise((r) => setTimeout(r, 520));
       appendWhatIsSrBlock();
+      setChatLoading(false);
+      return;
+    }
+
+    if (isUserSrKnowMoreMessage(text)) {
+      setMessages((prev) => [...prev, userMsg]);
+      setChatLoading(true);
+      await new Promise((r) => setTimeout(r, 520));
+      appendWhatIsSrOriginsBlock();
       setChatLoading(false);
       return;
     }
@@ -623,9 +650,23 @@ export function HomeChatPanel({
                       if (chatLoading || linkProfileLoading) return;
                       appendOnboardingIntroBlock();
                     }}
+                    onKnowMore={() => {
+                      if (chatLoading || linkProfileLoading) return;
+                      void submitUserText(SR_KNOW_MORE_PROMPT);
+                    }}
                     onSelectInterviewOption={(value) => {
                       void submitUserText(value);
                     }}
+                  />
+                </div>
+              );
+            }
+            if (m.role === "assistant" && m.whatIsSrOriginsBlock) {
+              return (
+                <div key={m.id} className="text-left">
+                  <WhatIsSrOriginsBlock
+                    messageKey={m.id}
+                    onTypewriterProgress={scheduleScrollToBottom}
                   />
                 </div>
               );

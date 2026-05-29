@@ -1,6 +1,7 @@
 import {
   HELP_ME_ONBOARD_PROMPT,
   INTERVIEW_ENTRY_MCQ,
+  SR_KNOW_MORE_PROMPT,
   WHAT_IS_SR_REPLY_TEXT,
 } from "@shared/onboarding-opening";
 import { TypewriterText } from "./TypewriterText";
@@ -9,6 +10,7 @@ type WhatIsScientificRevolutionBlockProps = {
   messageKey: string;
   disabled?: boolean;
   onHelpMeOnboard: () => void;
+  onKnowMore: () => void;
   onSelectInterviewOption: (value: string) => void;
   onTypewriterProgress?: () => void;
 };
@@ -17,6 +19,7 @@ export function WhatIsScientificRevolutionBlock({
   messageKey,
   disabled = false,
   onHelpMeOnboard,
+  onKnowMore,
   onSelectInterviewOption,
   onTypewriterProgress,
 }: WhatIsScientificRevolutionBlockProps) {
@@ -34,14 +37,24 @@ export function WhatIsScientificRevolutionBlock({
         />
       </p>
 
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onHelpMeOnboard}
-        className={actionButtonClass}
-      >
-        {HELP_ME_ONBOARD_PROMPT}
-      </button>
+      <div className="flex flex-wrap gap-2 max-w-2xl">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onHelpMeOnboard}
+          className={actionButtonClass}
+        >
+          {HELP_ME_ONBOARD_PROMPT}
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onKnowMore}
+          className={actionButtonClass}
+        >
+          {SR_KNOW_MORE_PROMPT}
+        </button>
+      </div>
 
       <div className="space-y-3 border-t border-border pt-4">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground">

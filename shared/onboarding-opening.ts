@@ -60,13 +60,27 @@ export function isUserWhatIsScientificRevolutionMessage(text: string): boolean {
 
 /** Cached explainer body (plain text; rich UI adds buttons below). */
 export const WHAT_IS_SR_REPLY_TEXT = [
-  "Scientific Revolution (Sail) is a chat-first coordination platform for volunteer-driven, mission-aligned work.",
+  "Scientific Revolution is a matchmaking service for volunteer-driven work.",
   "",
-  "You start on the home chat to build your profile and context. When you're ready, you graduate into a workspace dashboard where chat, people, and tasks live together.",
+  "Think: distributed teams working on problems that matter, without the overhead of managers or platforms.",
+].join("\n");
+
+/** Button in the SR explainer block; shows the cached origins story (no LLM). */
+export const SR_KNOW_MORE_PROMPT = "I'd like to know more information about SR";
+
+export function isUserSrKnowMoreMessage(text: string): boolean {
+  return text.trim().toLowerCase() === SR_KNOW_MORE_PROMPT.toLowerCase();
+}
+
+/** Cached origins / partner context (shown after SR_KNOW_MORE_PROMPT). */
+export const WHAT_IS_SR_ORIGINS_REPLY_TEXT = [
+  "Scientific Revolution grew out of work Josh led at Public AI—a volunteer movement focused on spreading the benefits and mitigating the harms of AI through public-interest projects.",
   "",
-  "Tasks are drafted from real source material—notes, transcripts, email threads—and handed off through channels like email while tracking stays in Sail.",
+  "Early pilots needed something lighter than another “platform”: a way to match people to mission-aligned work, keep context in one thread, and hand tasks off through email and messaging without a management layer on top.",
   "",
-  "There is no reputation scoring. The focus is clear coordination: who you are, what you want to contribute, and what work should happen next.",
+  "That pattern was tested with partners including UNICEF (volunteer coordination around program outreach and partner follow-up) and Metagov (governance and research communities that needed clear handoffs between contributors).",
+  "",
+  "Sail—the software behind Scientific Revolution—is the coordination layer those pilots pointed to: chat-first onboarding, a workspace for tasks drafted from real source material, and delivery through the channels people already use.",
 ].join("\n");
 
 /** First interview step surfaced immediately after the SR explainer. */
@@ -105,6 +119,10 @@ export function whatIsScientificRevolutionReplyPlain(): string {
     INTERVIEW_ENTRY_MCQ.question,
     optionLines,
   ].join("\n");
+}
+
+export function srKnowMoreReplyPlain(): string {
+  return WHAT_IS_SR_ORIGINS_REPLY_TEXT;
 }
 
 function salutationLine(firstName: string): string {
