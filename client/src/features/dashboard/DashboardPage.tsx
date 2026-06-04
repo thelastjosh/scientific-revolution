@@ -24,6 +24,7 @@ import {
   listMyInvites,
   revokeInvite,
 } from "@/lib/onboarding-api";
+import { ConnectorsPane } from "./ConnectorsPane";
 
 /** Shared motion for dashboard controls: lift on hover, press on click. */
 const DASH_PRESS =
@@ -35,7 +36,7 @@ const DASH_BTN = cn(
   "hover:bg-secondary/70 hover:border-foreground/25 hover:shadow-sm",
 );
 
-type Pane = "profile" | "people" | "tasks" | "invites";
+type Pane = "profile" | "people" | "tasks" | "invites" | "connectors";
 
 export default function DashboardPage() {
   const [, navigate] = useLocation();
@@ -333,6 +334,13 @@ export default function DashboardPage() {
           <button type="button" onClick={() => setActivePane("invites")} className={paneTabClass("invites")}>
             Invites
           </button>
+          <button
+            type="button"
+            onClick={() => setActivePane("connectors")}
+            className={paneTabClass("connectors")}
+          >
+            Connectors
+          </button>
           {isAdmin ? (
             <Link href="/admin">
               <a className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider no-underline")}>
@@ -553,9 +561,14 @@ export default function DashboardPage() {
                   onMatchmakingChange={() =>
                     queryClient.invalidateQueries({ queryKey: ["dashboard"] })
                   }
+                  onOpenConnectors={() => setActivePane("connectors")}
                 />
               ) : null}
             </div>
+          ) : null}
+
+          {activePane === "connectors" ? (
+            <ConnectorsPane actionButtonClass={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider")} />
           ) : null}
 
           {activePane === "invites" ? (
@@ -898,6 +911,7 @@ function TaskEditor({
   onSave,
   saving,
   onMatchmakingChange,
+  onOpenConnectors,
 }: {
   task: Task;
   organizations: DashboardOrganization[];
@@ -908,6 +922,7 @@ function TaskEditor({
   ) => void;
   saving: boolean;
   onMatchmakingChange?: () => void;
+  onOpenConnectors?: () => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -980,8 +995,21 @@ function TaskEditor({
       </p>
       <p className="text-[10px] text-muted-foreground leading-relaxed">
         When you set status to <span className="text-foreground">open</span>, Sail sends a handoff email
-        to the notify address (if Resend is configured and the task is not already handed off).
-        Use <span className="text-foreground">Submit for matching</span> to find a volunteer first.
+        to the notify address (if configured) and a Telegram message if you have an active Telegram
+        connector. Use <span className="text-foreground">Submit for matching</span> to find a volunteer
+        first.
+        {onOpenConnectors ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={onOpenConnectors}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Manage connectors
+            </button>
+          </>
+        ) : null}
       </p>
       {task.status === "draft" && matchmaking ? (
         <div className="border border-border bg-secondary/20 px-3 py-2 text-[10px] space-y-1">

@@ -82,7 +82,7 @@ export default function AdminPage() {
   });
 
   const notifyMutation = useMutation({
-    mutationFn: (input: { userId: string; channel: "email" | "workspace_message" }) =>
+    mutationFn: (input: { userId: string; channel: "email" | "workspace_message" | "telegram" }) =>
       postAdminMemberNotifyTest(input.userId, { channel: input.channel }),
     onSuccess: (_, v) => {
       toast({
@@ -262,6 +262,19 @@ export default function AdminPage() {
                           }
                         >
                           Test message
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 rounded-none text-[10px] uppercase tracking-wider w-full max-w-[140px]"
+                          disabled={
+                            notifyMutation.isPending ||
+                            !a.integrations.some((i) => i.provider === "telegram" && i.status === "active")
+                          }
+                          onClick={() => notifyMutation.mutate({ userId: a.id, channel: "telegram" })}
+                        >
+                          Test Telegram
                         </Button>
                       </div>
                     </TableCell>

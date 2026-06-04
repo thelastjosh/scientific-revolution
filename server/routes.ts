@@ -48,6 +48,9 @@ import { applyInviteContextToUser } from "./invite-application-service";
 import { sendInviteEmail, sendOnboardingFollowUpEmail } from "./email/onboarding-email-service";
 import { registerResendInboundWebhook } from "./email/resend-inbound-webhook";
 import { sendTaskHandoffEmailIfNeeded } from "./email/task-handoff-email";
+import { sendConnectorHandoffsIfNeeded } from "./connectors/task-handoff-service";
+import { sendAdminTest } from "./connectors/connector-service";
+import { registerConnectorRoutes } from "./connector-routes";
 import { extractCvText } from "./onboarding-cv-service";
 import { registerNetworkRoutes } from "./network-routes";
 import { registerMatchmakingRoutes } from "./routes/matchmaking-routes";
@@ -166,7 +169,7 @@ const profileUpdateSchema = z.object({
 });
 
 const adminMemberNotifySchema = z.object({
-  channel: z.enum(["email", "workspace_message"]),
+  channel: z.enum(["email", "workspace_message", "telegram"]),
   subject: z.string().max(200).optional(),
   body: z.string().max(8000).optional(),
 });
@@ -714,6 +717,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
     try {
       await sendTaskHandoffEmailIfNeeded({ task: row, previousStatus: existing.status });
+      await sendConnectorHandoffsIfNeeded({ task: row, previousStatus: existing.status });
     } catch (e) {
       console.error("[task-handoff]", e);
     }
@@ -830,6 +834,18 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       return res.json({ ok: true as const, channel: "email", detail: out.detail });
     }
+    if (parsed.data.channel === "telegram") {
+      const out = await sendAdminTest({
+        targetUserId: targetId,
+        actorUserId: req.userId,
+        provider: "telegram",
+        body: parsed.data.body,
+      });
+      if (!out.ok) {
+        return res.status(out.status ?? 502).json({ message: out.reason });
+      }
+      return res.json({ ok: true as const, channel: "telegram", detail: out.detail });
+    }
     const out = await adminSendTestWorkspaceMessage({
       targetUserId: targetId,
       actorUserId: req.userId,
@@ -896,6 +912,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     res.json({ experiment: updated });
   });
 
+  registerConnectorRoutes(app);
   registerNetworkRoutes(app);
   registerMatchmakingRoutes(app);
   registerResendInboundWebhook(app);

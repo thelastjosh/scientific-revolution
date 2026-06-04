@@ -32,11 +32,24 @@ export async function resolveOrganizationIdForTask(task: typeof networkTasks.$in
   return rows[0]?.organizationId ?? null;
 }
 
-export function taskHandoffAlreadySent(task: typeof networkTasks.$inferSelect): boolean {
+export type HandoffChannel = "email" | import("@shared/connectors/types").ConnectorId;
+
+export function taskHandoffAlreadySent(
+  task: typeof networkTasks.$inferSelect,
+  channel: HandoffChannel,
+): boolean {
   const history = task.history ?? [];
-  if (history.some((h) => h && typeof h === "object" && (h as { kind?: string }).kind === "handoff_email_sent")) {
+  if (channel === "email") {
+    if (history.some((h) => h && typeof h === "object" && (h as { kind?: string }).kind === "handoff_email_sent")) {
+      return true;
+    }
+    const refs = task.externalRefs ?? [];
+    return refs.some((r) => r.system === "resend" && r.id.startsWith("handoff:"));
+  }
+  const kind = `handoff_${channel}_sent`;
+  if (history.some((h) => h && typeof h === "object" && (h as { kind?: string }).kind === kind)) {
     return true;
   }
   const refs = task.externalRefs ?? [];
-  return refs.some((r) => r.system === "resend" && r.id.startsWith("handoff:"));
+  return refs.some((r) => r.system === channel && r.id.startsWith("handoff:"));
 }

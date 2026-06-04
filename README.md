@@ -20,6 +20,20 @@ Project management
 
 **Optional agent fan-out:** If the org has an **active** gateway agent whose `capability_manifest` includes `email`, an inbound reply triggers a `task_update` dispatch after the event is recorded.
 
+## Connectors (Telegram)
+
+Pluggable outbound connectors live under [`server/connectors/`](server/connectors/). **Telegram** is the first send-capable integration.
+
+| Variable | Purpose |
+|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Bot API token from [@BotFather](https://t.me/BotFather) for handoff + test sends. |
+
+**Dashboard:** **Connectors** pane — save label + Telegram `chat_id`, **Send test**, disable/remove. **Tasks:** opening a task (`status` → `open`) sends handoff email (notify address) and Telegram (if you have an active Telegram connector).
+
+**Admin:** **Test Telegram** on an account (requires that user’s active `telegram` row in `channel_credentials`).
+
+Contributor checklist: [`server/connectors/README.md`](server/connectors/README.md).
+
 ## Matchmaking (local test)
 
 1. Migrate and seed: `npm run db:migrate` (or `db:push`) then `npm run db:seed`

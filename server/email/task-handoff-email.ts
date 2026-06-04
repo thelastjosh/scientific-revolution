@@ -96,7 +96,7 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
   if (previousStatus === "open") {
     return { ok: true, skipped: "already_open" };
   }
-  if (taskHandoffAlreadySent(task)) {
+  if (taskHandoffAlreadySent(task, "email")) {
     return { ok: true, skipped: "already_sent" };
   }
   const to = await resolveHandoffRecipient(task);

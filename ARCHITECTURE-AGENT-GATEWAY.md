@@ -136,3 +136,13 @@ If you standardize on **OpenClaw** as the first BYO runtime, set `runtime_kind =
 - **Outbound:** When a dashboard task’s `status` transitions to `open`, Sail sends a handoff email via Resend to the first `delivery_channels` entry with `kind: email`, if not already sent (see `history.kind = handoff_email_sent` or `external_refs` `resend` id prefix `handoff:`). `Reply-To` uses a signed local-part token (`reply-…`) so inbound can resolve `task_id` without guessing.
 - **Inbound:** `POST /internal/webhooks/resend/inbound` verifies the Svix signature (`RESEND_WEBHOOK_SIGNING_SECRET`), handles `email.received`, loads the full MIME via `GET /emails/receiving/{id}`, maps the recipient local-part to a token, appends `communication_events` and task `history` (`email_reply_received`). Unknown or invalid tokens are logged and acknowledged without mutation.
 - **Env:** See [README.md](README.md) (`RESEND_API_KEY`, outbound From in `server/email/from-address.ts`, `TASK_EMAIL_DOMAIN`, `TASK_EMAIL_ROUTE_SECRET`, `RESEND_WEBHOOK_SIGNING_SECRET`).
+
+## Appendix: Outbound connectors (Telegram)
+
+User-managed connectors reuse `channel_credentials` (`provider` = connector id, `credential_ref` = adapter-validated JSON). The registry and adapters live in [`server/connectors/`](server/connectors/).
+
+- **Task handoff:** On `status` → `open`, [`sendConnectorHandoffsIfNeeded`](server/connectors/task-handoff-service.ts) sends via each send-capable adapter (today: **telegram** only) using the **task owner’s** active credential—not per-task addresses. Idempotency: `history.kind = handoff_telegram_sent`, `externalRefs.system = "telegram"`, prefix `handoff:` on external id.
+- **Timeline:** Successful sends append `communication_events` (`channel: telegram`, `threadKey: telegram:{chatId}:{messageId}`).
+- **Self-service:** `GET/PUT/PATCH/DELETE /api/connectors/mine/:provider`, `POST .../test`; dashboard **Connectors** pane.
+- **Admin:** `POST /api/admin/members/:id/notify-test` with `channel: telegram` delegates to connector-service.
+- **Env:** `TELEGRAM_BOT_TOKEN` (global bot); users store `chatId` only. Phone/Signal are catalog stubs (`coming_soon`) until adapters ship.

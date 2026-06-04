@@ -59,7 +59,7 @@ export async function fetchAdminSummary(): Promise<AdminSummary> {
 
 export async function postAdminMemberNotifyTest(
   userId: string,
-  body: { channel: "email" | "workspace_message"; subject?: string; body?: string },
+  body: { channel: "email" | "workspace_message" | "telegram"; subject?: string; body?: string },
 ): Promise<{ ok: true; channel: string; detail?: unknown }> {
   const r = await fetch(`/api/admin/members/${encodeURIComponent(userId)}/notify-test`, {
     method: "POST",
