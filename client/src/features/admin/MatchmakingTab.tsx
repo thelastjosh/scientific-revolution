@@ -1,8 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchMatchmakingMetrics,
   fetchMatchmakingRuns,
+  postMatchmakingDemo,
+  type MatchmakingDemoResult,
 } from "@/lib/matchmaking-admin-api";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -19,6 +24,10 @@ function pct(n: number): string {
 }
 
 export default function MatchmakingTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [demoResult, setDemoResult] = useState<MatchmakingDemoResult | null>(null);
+
   const metricsQuery = useQuery({
     queryKey: ["admin-matchmaking-metrics"],
     queryFn: fetchMatchmakingMetrics,
@@ -26,6 +35,25 @@ export default function MatchmakingTab() {
   const runsQuery = useQuery({
     queryKey: ["admin-matchmaking-runs"],
     queryFn: () => fetchMatchmakingRuns({ limit: 30 }),
+  });
+
+  const demoMutation = useMutation({
+    mutationFn: () => postMatchmakingDemo({ taskId: "T-500103", reset: true }),
+    onSuccess: (demo) => {
+      setDemoResult(demo);
+      queryClient.invalidateQueries({ queryKey: ["admin-matchmaking-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-matchmaking-runs"] });
+      toast({
+        title: demo.decision === "propose" ? "Demo match proposed" : "Demo waited",
+        description:
+          demo.decision === "propose"
+            ? `Offer URLs below (email ${demo.emailSkipped ? "skipped in dev" : "sent"})`
+            : demo.reasons[0] ?? "No confident match",
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Demo failed", description: e.message, variant: "destructive" });
+    },
   });
 
   const metrics = metricsQuery.data;
@@ -47,6 +75,48 @@ export default function MatchmakingTab() {
 
   return (
     <div className="space-y-8">
+      <div className="border border-border p-4 space-y-3">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Test the flow</p>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Resets seeded task <span className="font-mono text-foreground">T-500103</span>, runs
+          matchmaking, and prints offer links. No Resend needed in local dev. Or run{" "}
+          <span className="font-mono">npm run matchmaking:demo</span> from the terminal.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={demoMutation.isPending}
+          onClick={() => demoMutation.mutate()}
+          className="rounded-none text-xs uppercase tracking-wider"
+        >
+          {demoMutation.isPending ? "Running demo…" : "Run matchmaking demo"}
+        </Button>
+        {demoResult ? (
+          <div className="text-[11px] font-mono space-y-1 border-t border-border pt-3 break-all">
+            <p>
+              <span className="text-muted-foreground">Decision:</span> {demoResult.decision}
+            </p>
+            {demoResult.candidateEmail ? (
+              <p>
+                <span className="text-muted-foreground">Candidate:</span> {demoResult.candidateEmail}
+              </p>
+            ) : null}
+            {demoResult.urls ? (
+              <>
+                <p>
+                  <a href={demoResult.urls.offerPage} className="underline" target="_blank" rel="noreferrer">
+                    {demoResult.urls.offerPage}
+                  </a>
+                </p>
+                <p className="text-muted-foreground">
+                  Accept · Decline links are on the offer page
+                </p>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Match rate", value: pct(metrics.rates.matchRate) },

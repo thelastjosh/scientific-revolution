@@ -65,6 +65,8 @@ async function main() {
           firstName: "Alice",
           lastName: "Chen",
           bio: "ML reliability and evaluation; coordinates volunteer cohorts for Public AI.",
+          skillMarkdown:
+            "machine learning, evaluation rubrics, AI safety onboarding, React dashboards, volunteer coordination",
           role: "member",
         },
         {
@@ -73,6 +75,8 @@ async function main() {
           firstName: "Marcus",
           lastName: "Okonkwo",
           bio: "Field data systems; focuses on child health and education programs in East Africa.",
+          skillMarkdown:
+            "PostgreSQL, ETL pipelines, data hygiene, grants reporting, financial systems, field data, UNICEF programs",
           role: "member",
         },
         {
@@ -153,6 +157,19 @@ async function main() {
         status: "draft",
         history: [{ type: "created", via: "seed", at: new Date().toISOString() }],
       },
+      {
+        id: "T-500103",
+        ownerUserId: byEmail["demo@scientific-revolution.test"]!,
+        organizationId: "unicef",
+        sourceSessionId: workspaceId,
+        title: "Clean up grants data pipeline in PostgreSQL",
+        description:
+          "Stabilize financial reporting and grants data hygiene. ETL fixes, PostgreSQL documentation, and reliability for UNICEF program data.",
+        rawSourceDoc: "Grants system audit notes — need SQL and data hygiene help.",
+        extractedBy: "seed",
+        status: "draft",
+        history: [{ type: "created", via: "seed", matchmaking_demo: true, at: new Date().toISOString() }],
+      },
     ]);
 
     await tx.insert(channelCredentials).values([
@@ -210,6 +227,9 @@ async function main() {
   console.log("  - demo@scientific-revolution.test");
   console.log("  - alice@public-ai.test");
   console.log("  - marcus@unicef.test");
+  console.log("");
+  console.log("Matchmaking demo (after migrate): npm run matchmaking:demo");
+  console.log("  Uses draft task T-500103 → should propose marcus@unicef.test");
 }
 
 main().catch((e) => {

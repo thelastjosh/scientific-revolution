@@ -12,6 +12,25 @@ function appBaseUrl(): string {
   return "http://localhost:5000";
 }
 
+export function matchOfferUrls(token: string) {
+  const base = `${appBaseUrl()}/match/offer/${token}`;
+  return {
+    offerPage: base,
+    acceptPage: `${base}?action=accept`,
+    declinePage: `${base}?action=decline`,
+    acceptApi: `${appBaseUrl()}/api/matchmaking/offer/${token}/accept`,
+    declineApi: `${appBaseUrl()}/api/matchmaking/offer/${token}/decline`,
+  };
+}
+
+export function shouldSkipMatchOfferEmail(): boolean {
+  if (process.env.MATCHMAKER_SKIP_EMAIL === "true") return true;
+  if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY?.trim()) {
+    return true;
+  }
+  return false;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -53,13 +72,24 @@ export async function sendTaskMatchOfferEmail(input: {
   candidate: User;
   reasons: string[];
   organizationDisplayName: string | null;
-}): Promise<{ ok: true } | { ok: false; reason: string }> {
+}): Promise<{ ok: true; skipped?: boolean } | { ok: false; reason: string }> {
   const { task, proposal, candidate, reasons, organizationDisplayName } = input;
   const to = candidate.email.trim();
   const subject = `[Match] ${task.title}`;
-  const acceptUrl = `${appBaseUrl()}/match/offer/${proposal.token}?action=accept`;
-  const declineUrl = `${appBaseUrl()}/match/offer/${proposal.token}?action=decline`;
-  const offerUrl = `${appBaseUrl()}/match/offer/${proposal.token}`;
+  const urls = matchOfferUrls(proposal.token);
+
+  if (shouldSkipMatchOfferEmail()) {
+    await logEmailEvent({
+      userId: candidate.id,
+      emailType: "task_match_offer",
+      recipient: to,
+      subject,
+      status: "skipped",
+      errorMessage: "MATCHMAKER_SKIP_EMAIL or dev without RESEND_API_KEY",
+      payload: { taskId: task.id, proposalId: proposal.id, ...urls },
+    });
+    return { ok: true, skipped: true };
+  }
 
   const resend = getResendClient();
   if (!resend) {
@@ -92,11 +122,11 @@ export async function sendTaskMatchOfferEmail(input: {
     ${orgLine}
     ${reasonsHtml ? `<p>Why you:</p>${reasonsHtml}` : ""}
     <p>
-      <a href="${escapeHtml(acceptUrl)}">Accept this task</a>
+      <a href="${escapeHtml(urls.acceptPage)}">Accept this task</a>
       &nbsp;|&nbsp;
-      <a href="${escapeHtml(declineUrl)}">Decline</a>
+      <a href="${escapeHtml(urls.declinePage)}">Decline</a>
     </p>
-    <p style="font-size:12px;color:#666">Or review: <a href="${escapeHtml(offerUrl)}">${escapeHtml(offerUrl)}</a></p>
+    <p style="font-size:12px;color:#666">Or review: <a href="${escapeHtml(urls.offerPage)}">${escapeHtml(urls.offerPage)}</a></p>
     <p style="font-size:12px;color:#666">This offer expires ${proposal.expiresAt.toISOString().slice(0, 10)}.</p>
   `;
 
@@ -133,7 +163,7 @@ export async function sendTaskMatchOfferEmail(input: {
         taskId: task.id,
         actorExternalHandle: to,
         body: `Match offer: ${task.title}`,
-        payload: { resendId, proposalId: proposal.id, acceptUrl, declineUrl },
+        payload: { resendId, proposalId: proposal.id, ...urls },
       });
     }
 

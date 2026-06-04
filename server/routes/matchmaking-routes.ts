@@ -4,6 +4,7 @@ import {
   declineMatchProposal,
   getProposalByToken,
   getTaskMatchmakingStatus,
+  runMatchmakingDemo,
   submitTaskForMatching,
 } from "../matchmaking/runner";
 import { getMatchmakingMetrics, listMatchmakingRuns } from "../matchmaking/metrics-service";
@@ -110,5 +111,46 @@ export function registerMatchmakingRoutes(app: Express): void {
     const offset = req.query.offset ? Number(req.query.offset) : 0;
     const data = await listMatchmakingRuns({ limit, offset });
     res.json(data);
+  });
+
+  /** Dev helper: reset task + submit for matching, return offer URLs (no auth session needed in script; admin-only here). */
+  app.post("/api/admin/matchmaking/demo", async (req: Request, res: Response) => {
+    try {
+      await assertAdmin(req);
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      return res.status(err.status ?? 500).json({ message: err.message ?? "Error" });
+    }
+
+    const taskId =
+      typeof req.body?.taskId === "string" && req.body.taskId.trim()
+        ? req.body.taskId.trim()
+        : "T-500103";
+    const reset = req.body?.reset !== false;
+
+    const db = getDb();
+    if (!db) return res.status(503).json({ message: "Database is not configured" });
+
+    const ownerRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, "demo@scientific-revolution.test"))
+      .limit(1);
+    const owner = ownerRows[0];
+    if (!owner) {
+      return res.status(404).json({
+        message: "Demo owner not found. Run npm run db:seed first.",
+      });
+    }
+
+    const result = await runMatchmakingDemo({
+      taskId,
+      ownerUserId: owner.id,
+      reset,
+    });
+    if (!result.ok) {
+      return res.status(400).json({ message: result.message });
+    }
+    res.json({ demo: result });
   });
 }

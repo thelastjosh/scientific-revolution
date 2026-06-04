@@ -19,3 +19,19 @@ Project management
 **Resend inbound:** Enable receiving on your domain in Resend, then add a webhook that posts `email.received` to your deployed `https://<host>/internal/webhooks/resend/inbound` with the signing secret above.
 
 **Optional agent fan-out:** If the org has an **active** gateway agent whose `capability_manifest` includes `email`, an inbound reply triggers a `task_update` dispatch after the event is recorded.
+
+## Matchmaking (local test)
+
+1. Migrate and seed: `npm run db:migrate` (or `db:push`) then `npm run db:seed`
+2. Run the demo (no Resend required in dev): `npm run matchmaking:demo`
+3. Open the printed **Offer page** URL, or accept from CLI: `npm run matchmaking:demo -- accept <token>`
+
+Seeded draft task `T-500103` should propose `marcus@unicef.test`. Login as `demo@scientific-revolution.test` / `Demo2026!SR` to test from the dashboard **Submit for matching** button, or use **Admin → matchmaking → Run matchmaking demo**.
+
+| Variable | Purpose |
+|----------|---------|
+| `MATCHMAKER_SKIP_EMAIL` | Set `true` to skip offer emails (URLs still work) |
+| `APP_BASE_URL` | Base URL for accept/decline links (default `http://localhost:5000`) |
+| `MATCHMAKER_MODULE_ID` | Active module (default `rules-v0.1`) |
+
+Offline module comparison: `npm run matchmaking:bench`

@@ -19,7 +19,11 @@ import {
 } from "@shared/schema";
 import { getDb } from "../db";
 import { getActiveMatchmaker } from "./registry";
-import { sendTaskMatchOfferEmail } from "../email/task-match-offer-email";
+import {
+  sendTaskMatchOfferEmail,
+  matchOfferUrls,
+  shouldSkipMatchOfferEmail,
+} from "../email/task-match-offer-email";
 import { sendTaskHandoffEmailIfNeeded } from "../email/task-handoff-email";
 
 const PROPOSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -508,5 +512,136 @@ export async function getProposalByToken(token: string) {
       lastName: candidate.lastName,
     },
     reasons: run?.reasons ?? [],
+  };
+}
+
+/** Dev/demo: clear pending proposals and return task to draft for re-testing. */
+export async function resetTaskMatchmakingForDemo(taskId: string): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error("Database is not configured");
+
+  await db
+    .update(matchmakingProposals)
+    .set({ status: "expired", respondedAt: new Date() })
+    .where(
+      and(eq(matchmakingProposals.taskId, taskId), eq(matchmakingProposals.status, "pending")),
+    );
+
+  const taskRows = await db
+    .select()
+    .from(networkTasks)
+    .where(eq(networkTasks.id, taskId))
+    .limit(1);
+  const task = taskRows[0];
+  if (!task) return;
+
+  await db
+    .update(networkTasks)
+    .set({
+      status: "draft",
+      assigneeUserId: null,
+      updatedAt: new Date(),
+      history: [
+        ...(task.history ?? []),
+        { kind: "matchmaking_demo_reset", at: new Date().toISOString() },
+      ],
+    })
+    .where(eq(networkTasks.id, taskId));
+}
+
+export async function getPendingProposalDetails(taskId: string) {
+  const db = getDb();
+  if (!db) return null;
+
+  const proposal = await getPendingProposal(taskId);
+  if (!proposal) return null;
+
+  const candidateRows = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, proposal.candidateUserId))
+    .limit(1);
+  const candidate = candidateRows[0];
+  if (!candidate) return null;
+
+  return {
+    proposal: proposalToSummary(proposal),
+    token: proposal.token,
+    candidate: {
+      email: candidate.email,
+      firstName: candidate.firstName,
+      lastName: candidate.lastName,
+    },
+    urls: matchOfferUrls(proposal.token),
+  };
+}
+
+export async function runMatchmakingDemo(input: {
+  taskId: string;
+  ownerUserId: string;
+  reset?: boolean;
+}): Promise<
+  | {
+      ok: true;
+      decision: "wait" | "propose";
+      runId: string;
+      taskId: string;
+      taskTitle: string;
+      reasons: string[];
+      candidateEmail?: string;
+      urls?: ReturnType<typeof matchOfferUrls>;
+      emailSkipped?: boolean;
+    }
+  | { ok: false; message: string }
+> {
+  if (input.reset !== false) {
+    await resetTaskMatchmakingForDemo(input.taskId);
+  }
+
+  const result = await submitTaskForMatching({
+    taskId: input.taskId,
+    ownerUserId: input.ownerUserId,
+  });
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  const db = getDb();
+  const taskRows = db
+    ? await db.select().from(networkTasks).where(eq(networkTasks.id, input.taskId)).limit(1)
+    : [];
+  const taskTitle = taskRows[0]?.title ?? input.taskId;
+
+  const runRows = db
+    ? await db
+        .select()
+        .from(matchmakingRuns)
+        .where(eq(matchmakingRuns.id, result.runId))
+        .limit(1)
+    : [];
+  const reasons = runRows[0]?.reasons ?? [];
+
+  if (result.decision === "wait") {
+    return {
+      ok: true,
+      decision: "wait",
+      runId: result.runId,
+      taskId: input.taskId,
+      taskTitle,
+      reasons,
+    };
+  }
+
+  const pending = await getPendingProposalDetails(input.taskId);
+  return {
+    ok: true,
+    decision: "propose",
+    runId: result.runId,
+    taskId: input.taskId,
+    taskTitle,
+    reasons,
+    candidateEmail: pending?.candidate.email,
+    urls: pending?.urls,
+    emailSkipped: shouldSkipMatchOfferEmail(),
   };
 }
