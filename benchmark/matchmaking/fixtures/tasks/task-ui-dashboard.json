@@ -1,0 +1,7 @@
+{
+  "id": "task-ui-dashboard",
+  "title": "Build internal React dashboard",
+  "description": "Create a React TypeScript dashboard for volunteer coordinators with accessibility.",
+  "organizationId": "public-ai",
+  "ownerUserId": "owner-1"
+}

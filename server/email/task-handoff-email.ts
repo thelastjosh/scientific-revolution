@@ -1,5 +1,5 @@
 import type { NetworkTask } from "@shared/schema";
-import { emailEvents, networkTasks } from "@shared/schema";
+import { emailEvents, networkTasks, users } from "@shared/schema";
 import { getOutboundFromEmail } from "./from-address";
 import { getResendClient } from "./resend-client";
 import { getCommTemplatesForOrg } from "../network-templates-service";
@@ -30,6 +30,22 @@ function parseFirstEmailChannel(task: NetworkTask): string | null {
   const ch = task.deliveryChannels ?? [];
   const email = ch.find((c) => c.kind === "email" && typeof c.address === "string" && c.address.includes("@"));
   return email?.address.trim() ?? null;
+}
+
+async function resolveHandoffRecipient(task: NetworkTask): Promise<string | null> {
+  if (task.assigneeUserId) {
+    const db = getDb();
+    if (db) {
+      const rows = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, task.assigneeUserId))
+        .limit(1);
+      const assigneeEmail = rows[0]?.email?.trim();
+      if (assigneeEmail?.includes("@")) return assigneeEmail;
+    }
+  }
+  return parseFirstEmailChannel(task);
 }
 
 function messageIdForTask(taskId: string): string {
@@ -83,7 +99,7 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
   if (taskHandoffAlreadySent(task)) {
     return { ok: true, skipped: "already_sent" };
   }
-  const to = parseFirstEmailChannel(task);
+  const to = await resolveHandoffRecipient(task);
   if (!to) {
     return { ok: true, skipped: "no_email_channel" };
   }

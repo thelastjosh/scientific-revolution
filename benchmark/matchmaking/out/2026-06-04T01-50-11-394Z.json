@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-06-04T01:50:11.394Z",
+  "moduleFilter": null,
+  "results": [
+    {
+      "taskId": "task-data-hygiene",
+      "moduleId": "rules-v0.1",
+      "moduleVersion": "0.1.0",
+      "decision": "propose",
+      "proposedUserId": "user-data-engineer",
+      "confidence": 0.6,
+      "reasons": [
+        "Selected Alex Chen",
+        "Score 0.60 (margin 0.45)",
+        "skill overlap score 0.45",
+        "same organization (+0.15)"
+      ],
+      "labelMatch": true
+    },
+    {
+      "taskId": "task-ui-dashboard",
+      "moduleId": "rules-v0.1",
+      "moduleVersion": "0.1.0",
+      "decision": "propose",
+      "proposedUserId": "user-frontend",
+      "confidence": 0.36428571428571427,
+      "reasons": [
+        "Selected Sam Rivera",
+        "Score 0.36 (margin 0.30)",
+        "skill overlap score 0.21",
+        "same organization (+0.15)"
+      ],
+      "labelMatch": true
+    },
+    {
+      "taskId": "task-vague",
+      "moduleId": "rules-v0.1",
+      "moduleVersion": "0.1.0",
+      "decision": "wait",
+      "confidence": 0,
+      "reasons": [
+        "Top score 0.00 below threshold 0.12",
+        "Best candidate score: 0.00"
+      ],
+      "labelMatch": true
+    }
+  ],
+  "moduleStats": {
+    "rules-v0.1": {
+      "runs": 3,
+      "propose": 2,
+      "wait": 1,
+      "labeled": 3,
+      "correct": 3
+    }
+  },
+  "disagreementTasks": []
+}

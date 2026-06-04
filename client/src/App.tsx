@@ -11,6 +11,7 @@ import Dossier from "@/pages/dossier";
 import Profile from "@/pages/profile";
 import PublicProfile from "@/pages/public-profile";
 import Admin from "@/pages/admin";
+import MatchOffer from "@/pages/match-offer";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import { UiExperimentsProvider } from "@/features/experiments/ui-experiments-context";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/dossier" component={Dossier} />
       <Route path="/profile" component={Profile} />
       <Route path="/node/:id" component={PublicProfile} />
+      <Route path="/match/offer/:token" component={MatchOffer} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>

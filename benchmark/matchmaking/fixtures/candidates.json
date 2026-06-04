@@ -1,0 +1,38 @@
+[
+  {
+    "userId": "user-data-engineer",
+    "email": "data@example.com",
+    "firstName": "Alex",
+    "lastName": "Chen",
+    "bio": "Data engineer with PostgreSQL, ETL pipelines, and grants reporting experience.",
+    "skillMarkdown": "Python, SQL, data hygiene, financial systems",
+    "organizationIds": ["unicef"]
+  },
+  {
+    "userId": "user-frontend",
+    "email": "frontend@example.com",
+    "firstName": "Sam",
+    "lastName": "Rivera",
+    "bio": "Frontend developer focused on React dashboards and accessibility.",
+    "skillMarkdown": "React, TypeScript, UI design",
+    "organizationIds": ["public-ai"]
+  },
+  {
+    "userId": "user-general",
+    "email": "volunteer@example.com",
+    "firstName": "Jordan",
+    "lastName": "Lee",
+    "bio": "General volunteer interested in community organizing.",
+    "skillMarkdown": "communication, events",
+    "organizationIds": []
+  },
+  {
+    "userId": "user-infra",
+    "email": "infra@example.com",
+    "firstName": "Morgan",
+    "lastName": "Patel",
+    "bio": "Infrastructure and DevOps — Kubernetes, CI/CD, reliability.",
+    "skillMarkdown": "kubernetes, terraform, monitoring, integration between systems",
+    "organizationIds": ["unicef"]
+  }
+]

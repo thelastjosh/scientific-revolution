@@ -17,7 +17,8 @@
     "db:seed": "tsx script/seed.ts",
     "db:ping": "tsx script/db-ping.ts",
     "agent:stub": "node reference-agent/stub-server.mjs",
-    "network:emit-test": "tsx script/emit-network-event.ts"
+    "network:emit-test": "tsx script/emit-network-event.ts",
+    "matchmaking:bench": "tsx script/matchmaking-bench.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",

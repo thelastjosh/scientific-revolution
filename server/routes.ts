@@ -50,6 +50,7 @@ import { registerResendInboundWebhook } from "./email/resend-inbound-webhook";
 import { sendTaskHandoffEmailIfNeeded } from "./email/task-handoff-email";
 import { extractCvText } from "./onboarding-cv-service";
 import { registerNetworkRoutes } from "./network-routes";
+import { registerMatchmakingRoutes } from "./routes/matchmaking-routes";
 import { assertUserOrganizationMember } from "./task-organization";
 import {
   adminSendTestEmail,
@@ -896,5 +897,6 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   registerNetworkRoutes(app);
+  registerMatchmakingRoutes(app);
   registerResendInboundWebhook(app);
 }

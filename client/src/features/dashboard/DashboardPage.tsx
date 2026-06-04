@@ -8,8 +8,10 @@ import {
   createTask,
   extractTaskDraft,
   fetchDashboard,
+  fetchTaskMatchmaking,
   saveProfileDraft,
   sendWorkspaceChat,
+  submitTaskForMatching,
   updateTask,
   type DashboardOrganization,
   type DashboardProfile,
@@ -548,6 +550,9 @@ export default function DashboardPage() {
                     updateTaskMutation.mutate({ id: selectedTask.id, patch })
                   }
                   saving={updateTaskMutation.isPending}
+                  onMatchmakingChange={() =>
+                    queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+                  }
                 />
               ) : null}
             </div>
@@ -892,6 +897,7 @@ function TaskEditor({
   organizations,
   onSave,
   saving,
+  onMatchmakingChange,
 }: {
   task: Task;
   organizations: DashboardOrganization[];
@@ -901,6 +907,7 @@ function TaskEditor({
     >,
   ) => void;
   saving: boolean;
+  onMatchmakingChange?: () => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -911,6 +918,30 @@ function TaskEditor({
   const [organizationId, setOrganizationId] = useState(task.organizationId ?? "");
   const wasSaving = useRef(false);
   const [showSaved, setShowSaved] = useState(false);
+
+  const matchmakingQuery = useQuery({
+    queryKey: ["task-matchmaking", task.id],
+    queryFn: () => fetchTaskMatchmaking(task.id),
+    enabled: task.status === "draft",
+  });
+
+  const submitMatchMutation = useMutation({
+    mutationFn: () => submitTaskForMatching(task.id),
+    onSuccess: (data) => {
+      matchmakingQuery.refetch();
+      onMatchmakingChange?.();
+      toast({
+        title: data.decision === "propose" ? "Match proposed" : "Waiting for match",
+        description:
+          data.decision === "propose"
+            ? "We emailed a candidate to accept or decline."
+            : "No confident match yet — task stays in draft.",
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Matchmaking failed", description: e.message, variant: "destructive" });
+    },
+  });
 
   useEffect(() => {
     setTitle(task.title);
@@ -936,6 +967,12 @@ function TaskEditor({
   const deliveryChannels =
     notifyEmail.trim().length > 0 ? [{ kind: "email" as const, address: notifyEmail.trim() }] : [];
 
+  const matchmaking = matchmakingQuery.data;
+  const canSubmitForMatching =
+    task.status === "draft" &&
+    !matchmaking?.pendingProposal &&
+    !submitMatchMutation.isPending;
+
   return (
     <div className="border border-border p-3 space-y-2">
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -944,7 +981,42 @@ function TaskEditor({
       <p className="text-[10px] text-muted-foreground leading-relaxed">
         When you set status to <span className="text-foreground">open</span>, Sail sends a handoff email
         to the notify address (if Resend is configured and the task is not already handed off).
+        Use <span className="text-foreground">Submit for matching</span> to find a volunteer first.
       </p>
+      {task.status === "draft" && matchmaking ? (
+        <div className="border border-border bg-secondary/20 px-3 py-2 text-[10px] space-y-1">
+          {matchmaking.pendingProposal ? (
+            <p className="text-foreground">Match offer pending — waiting for candidate response.</p>
+          ) : matchmaking.waitingForMatch ? (
+            <p className="text-muted-foreground">
+              Waiting for a match
+              {matchmaking.latestRun?.reasons?.[0]
+                ? `: ${matchmaking.latestRun.reasons[0]}`
+                : ""}
+            </p>
+          ) : matchmaking.latestRun ? (
+            <p className="text-muted-foreground">
+              Last run: {matchmaking.latestRun.decision} (module {matchmaking.latestRun.moduleId})
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Not yet submitted for matching.</p>
+          )}
+        </div>
+      ) : null}
+      {task.status === "draft" ? (
+        <button
+          type="button"
+          disabled={!canSubmitForMatching}
+          onClick={() => submitMatchMutation.mutate()}
+          className={cn(DASH_BTN, "px-3 py-1.5 text-xs uppercase tracking-wider w-full")}
+        >
+          {submitMatchMutation.isPending
+            ? "Matching…"
+            : matchmaking?.pendingProposal
+              ? "Offer pending"
+              : "Submit for matching"}
+        </button>
+      ) : null}
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}

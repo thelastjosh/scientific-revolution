@@ -37,12 +37,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { UiExperimentVariant } from "@shared/schema";
+import MatchmakingTab from "@/features/admin/MatchmakingTab";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [tab, setTab] = useState<
-    "accounts" | "tasks" | "credentials" | "surveys" | "context" | "experiments"
+    "accounts" | "tasks" | "credentials" | "surveys" | "context" | "experiments" | "matchmaking"
   >("accounts");
   const [phoneContactUser, setPhoneContactUser] = useState<AdminAccount | null>(null);
   const [phoneDraft, setPhoneDraft] = useState("");
@@ -142,18 +143,26 @@ export default function AdminPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {(["accounts", "tasks", "credentials", "surveys", "context", "experiments"] as const).map(
-            (k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setTab(k)}
-                className={`${actionButtonClass} ${tab === k ? "bg-foreground text-background border-foreground" : ""}`}
-              >
-                {k}
-              </button>
-            ),
-          )}
+          {(
+            [
+              "accounts",
+              "tasks",
+              "credentials",
+              "surveys",
+              "context",
+              "experiments",
+              "matchmaking",
+            ] as const
+          ).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={`${actionButtonClass} ${tab === k ? "bg-foreground text-background border-foreground" : ""}`}
+            >
+              {k}
+            </button>
+          ))}
         </div>
 
         {summaryQuery.error ? (
@@ -406,6 +415,8 @@ export default function AdminPage() {
             </Table>
           </div>
         ) : null}
+
+        {tab === "matchmaking" ? <MatchmakingTab /> : null}
       </div>
 
       <Dialog open={!!phoneContactUser} onOpenChange={(open) => !open && setPhoneContactUser(null)}>

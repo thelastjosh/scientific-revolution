@@ -371,3 +371,69 @@ export const networkSensitiveApprovals = pgTable("network_sensitive_approvals", 
 });
 
 export type NetworkSensitiveApproval = typeof networkSensitiveApprovals.$inferSelect;
+
+export const matchmakingDecisionEnum = pgEnum("matchmaking_decision", ["wait", "propose"]);
+
+export const matchmakingTriggerEnum = pgEnum("matchmaking_trigger", [
+  "submit",
+  "rerun",
+  "benchmark",
+]);
+
+export const matchmakingProposalStatusEnum = pgEnum("matchmaking_proposal_status", [
+  "pending",
+  "accepted",
+  "declined",
+  "expired",
+]);
+
+/** Append-only log of every matchmaking module invocation. */
+export const matchmakingRuns = pgTable("matchmaking_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id", { length: 32 })
+    .notNull()
+    .references(() => networkTasks.id, { onDelete: "cascade" }),
+  moduleId: varchar("module_id", { length: 64 }).notNull(),
+  moduleVersion: varchar("module_version", { length: 32 }).notNull(),
+  decision: matchmakingDecisionEnum("decision").notNull(),
+  proposedUserId: varchar("proposed_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  confidence: integer("confidence").notNull().default(0),
+  reasons: jsonb("reasons").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  scores: jsonb("scores").$type<Record<string, number>>(),
+  inputSnapshot: jsonb("input_snapshot")
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  trigger: matchmakingTriggerEnum("trigger").notNull().default("submit"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MatchmakingRun = typeof matchmakingRuns.$inferSelect;
+
+/** Outbound match offer tied to a run (email accept/decline). */
+export const matchmakingProposals = pgTable(
+  "matchmaking_proposals",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    taskId: varchar("task_id", { length: 32 })
+      .notNull()
+      .references(() => networkTasks.id, { onDelete: "cascade" }),
+    runId: varchar("run_id")
+      .notNull()
+      .references(() => matchmakingRuns.id, { onDelete: "cascade" }),
+    candidateUserId: varchar("candidate_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: matchmakingProposalStatusEnum("status").notNull().default("pending"),
+    token: varchar("token", { length: 128 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    responseSource: varchar("response_source", { length: 24 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("matchmaking_proposals_token_uidx").on(t.token)],
+);
+
+export type MatchmakingProposal = typeof matchmakingProposals.$inferSelect;

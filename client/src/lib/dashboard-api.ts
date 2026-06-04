@@ -1,4 +1,5 @@
 import type { Task, WorkspaceChatMessage, WorkspaceSession } from "@shared/network-feed";
+import type { TaskMatchmakingStatus } from "@shared/matchmaking";
 
 export type DashboardOrganization = {
   id: string;
@@ -161,4 +162,44 @@ export async function updateTask(
     throw new Error(data.message ?? `Task update failed (${r.status})`);
   }
   return data.task;
+}
+
+export async function fetchTaskMatchmaking(taskId: string): Promise<TaskMatchmakingStatus> {
+  const r = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/matchmaking`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    matchmaking?: TaskMatchmakingStatus;
+  };
+  if (!r.ok || !data.matchmaking) {
+    throw new Error(data.message ?? `Matchmaking status failed (${r.status})`);
+  }
+  return data.matchmaking;
+}
+
+export async function submitTaskForMatching(taskId: string): Promise<{
+  decision: "wait" | "propose";
+  runId: string;
+  matchmaking: TaskMatchmakingStatus;
+}> {
+  const r = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/submit-for-matching`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    message?: string;
+    decision?: "wait" | "propose";
+    runId?: string;
+    matchmaking?: TaskMatchmakingStatus;
+  };
+  if (!r.ok || !data.decision || !data.runId || !data.matchmaking) {
+    throw new Error(data.message ?? `Submit for matching failed (${r.status})`);
+  }
+  return {
+    decision: data.decision,
+    runId: data.runId,
+    matchmaking: data.matchmaking,
+  };
 }

@@ -1,0 +1,8 @@
+{
+  "id": "task-data-hygiene",
+  "title": "Clean up grants data pipeline",
+  "description": "Help stabilize financial reporting data hygiene in PostgreSQL. ETL fixes and documentation.",
+  "organizationId": "unicef",
+  "ownerUserId": "owner-1",
+  "rawSourceDocExcerpt": "We need someone with SQL and grants experience."
+}
