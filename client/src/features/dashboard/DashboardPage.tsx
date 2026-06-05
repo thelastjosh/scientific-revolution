@@ -104,7 +104,6 @@ export default function DashboardPage() {
         },
       );
       setDraft("");
-      toast({ title: "Sent", description: "Your message was delivered to the workspace." });
     },
     onError: (e: Error) => {
       toast({
@@ -390,6 +389,15 @@ export default function DashboardPage() {
                 rows={2}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    const trimmed = draft.trim();
+                    if (trimmed && !sendMutation.isPending) {
+                      sendMutation.mutate(draft);
+                    }
+                  }
+                }}
                 placeholder="Tell the workspace agent what you need..."
                 className="w-full bg-transparent border border-border px-3 py-2 pr-12 text-xs"
               />
