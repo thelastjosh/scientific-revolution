@@ -322,7 +322,7 @@ export default function DashboardPage() {
       <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Workspace
+            Agent
           </p>
           <p className="text-sm">
             {profile.firstName} {profile.lastName}

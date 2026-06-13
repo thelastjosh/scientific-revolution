@@ -2,15 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearch } from "wouter";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  LedMatrixBar,
-  LED_COUNT,
-  createLedCells,
-  setLed,
-  toggleLed,
-  type LedCells,
-} from "./LedMatrixBar";
 import { HomeChatPanel } from "./HomeChatPanel";
+import { ContextOrganizationsPanel } from "./ContextOrganizationsPanel";
+import { ContextCollapsedOrgs } from "./ContextCollapsedOrgs";
 
 const MD_BREAKPOINT_PX = 768;
 
@@ -40,28 +34,11 @@ export default function Home() {
     return q.get("invite")?.trim() || null;
   }, [searchString]);
 
-  const [leds, setLeds] = useState<LedCells>(() => createLedCells());
   const isSmallScreen = useIsBelowMd();
   /** Desktop-only: user has collapsed the context pane */
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
 
   const contextCollapsed = isSmallScreen || desktopCollapsed;
-
-  const handleLedToggle = useCallback((index: number) => {
-    setLeds((prev) => toggleLed(prev, index));
-  }, []);
-
-  /** Light a pixel when the user sends a message — independent instrumentation per event */
-  const handleUserMessage = useCallback((messageIndex: number) => {
-    setLeds((prev) => {
-      const i = (messageIndex * 13 + 7) % LED_COUNT;
-      return setLed(prev, i, true);
-    });
-  }, []);
-
-  const handleResetHome = useCallback(() => {
-    setLeds(createLedCells());
-  }, []);
 
   const expandContext = useCallback(() => {
     if (!isSmallScreen) setDesktopCollapsed(false);
@@ -78,15 +55,16 @@ export default function Home() {
           "shrink-0 h-full min-h-0 border-r border-border flex flex-col bg-card/20 transition-[width,min-width] duration-200 ease-out",
           contextCollapsed
             ? "w-11 min-w-11 items-center overflow-hidden py-2 px-1"
-            : "w-auto min-w-0 items-stretch overflow-hidden py-4 pl-3 pr-4",
+            : "w-[132px] min-w-[132px] items-stretch overflow-hidden py-4 pl-3 pr-3",
         )}
-        aria-label="LED bank"
+        aria-label="Context pane"
       >
         {contextCollapsed ? (
           <div className="flex h-full min-h-0 w-full flex-col items-center">
             <p className="shrink-0 text-[8px] uppercase tracking-[0.2em] text-muted-foreground text-center leading-tight [writing-mode:vertical-rl] rotate-180 select-none pt-1">
               Context
             </p>
+            <ContextCollapsedOrgs />
             <div className="min-h-0 flex-1" aria-hidden />
             {!isSmallScreen ? (
               <div className="flex w-full shrink-0 justify-center">
@@ -109,9 +87,8 @@ export default function Home() {
                 Context
               </span>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto">
-              <LedMatrixBar cells={leds} onToggle={handleLedToggle} />
-            </div>
+            <ContextOrganizationsPanel />
+            <div className="min-h-0 flex-1" aria-hidden />
             <div className="flex w-full shrink-0 justify-center pt-1">
               <button
                 type="button"
@@ -128,11 +105,7 @@ export default function Home() {
       </aside>
 
       <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-        <HomeChatPanel
-          inviteToken={inviteToken}
-          onUserMessage={handleUserMessage}
-          onResetHome={handleResetHome}
-        />
+        <HomeChatPanel inviteToken={inviteToken} />
       </main>
     </div>
   );

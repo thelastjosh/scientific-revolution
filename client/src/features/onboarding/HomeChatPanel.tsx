@@ -556,7 +556,7 @@ export function HomeChatPanel({
       <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Workspace
+            Agent
           </p>
           <button
             type="button"
@@ -950,14 +950,6 @@ export function HomeChatPanel({
           >
             <ArrowUpCircle className="w-7 h-7" strokeWidth={1.5} />
           </button>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center justify-start gap-x-5 gap-y-1 text-[9px] text-muted-foreground uppercase tracking-widest">
-          <Link href="/admin">
-            <a className="hover:text-foreground hover:underline underline-offset-4">
-              Admin
-            </a>
-          </Link>
-          <span className="opacity-40">Scientific Revolution · Sail v0</span>
         </div>
       </div>
       <ProfileSummaryDrawer
