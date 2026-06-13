@@ -1,7 +1,7 @@
-# Scientific Revolution (Sail v1) - Platform Specification
+# Sourceful (Sail v1) - Platform Specification
 
 ## 1. Product Direction (Pathway A)
-Scientific Revolution is a chat-first coordination platform with two linked conversational surfaces:
+Sourceful is a chat-first coordination platform with two linked conversational surfaces:
 
 1. **Home (`/`) onboarding chat** for identity/profile bootstrap.
 2. **Dashboard (`/dashboard`) workspace chat** for ongoing work orchestration.

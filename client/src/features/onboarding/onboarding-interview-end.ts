@@ -5,6 +5,7 @@
  */
 import {
   interviewEntryMcqUserTexts,
+  SOURCEFUL_KNOW_MORE_PROMPT,
   WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT,
 } from "@shared/onboarding-opening";
 
@@ -29,6 +30,7 @@ function interviewFlowStarted(
       trimmed === "Continue interview" ||
       trimmed === helpPrompt ||
       trimmed === WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT ||
+      trimmed === SOURCEFUL_KNOW_MORE_PROMPT ||
       mcqTexts.includes(trimmed)
     );
   });

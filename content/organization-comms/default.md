@@ -12,7 +12,7 @@ applies_when:
 
 | key | value | used_in |
 |-----|-------|--------|
-| `product_name` | Scientific Revolution | all |
+| `product_name` | Sourceful | all |
 | `support_email` | *(set via env / product)* | welcome, help |
 | `onboarding_welcome_subject` | Welcome to {product_name} | email `onboarding_welcome` |
 | `invite_email_subject` | {inviter} invited you to {product_name} | email `invite` |

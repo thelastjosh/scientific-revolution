@@ -46,7 +46,7 @@ async function main() {
         id: "public-ai",
         name: "Public AI",
         description:
-          "A nonprofit movement to spread the benefits and mitigate the harms of AI through volunteer-driven, public-interest work.",
+          "A nonprofit movement to spread the benefits and mitigate the harms of AI through intrinsically motivated, public-interest work.",
       },
       {
         id: "unicef",

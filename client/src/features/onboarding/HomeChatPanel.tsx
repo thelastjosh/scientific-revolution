@@ -9,7 +9,6 @@ import { InlineProfilePreview } from "./InlineProfilePreview";
 import { ProfilePreviewFollowUp } from "./ProfilePreviewFollowUp";
 import { shouldShowOnboardingBlock } from "./onboarding-intent";
 import { shouldShowInChatProfilePreview } from "./onboarding-interview-end";
-import { WhatIsScientificRevolutionBlock } from "./WhatIsScientificRevolutionBlock";
 import { WhatIsSrOriginsBlock } from "./WhatIsSrOriginsBlock";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -28,13 +27,10 @@ import {
   HELP_ME_ONBOARD_PROMPT,
   isHomeOpeningMessageVariant,
   isUserSrKnowMoreMessage,
-  isUserWhatIsScientificRevolutionMessage,
   pickHomeOpeningMessage,
   splitDisplayNameForRegister,
-  srKnowMoreReplyPlain,
-  whatIsScientificRevolutionReplyPlain,
-  SR_KNOW_MORE_PROMPT,
-  WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT,
+  SOURCEFUL_ABOUT_TEXT,
+  SOURCEFUL_KNOW_MORE_PROMPT,
   type HomeOpeningMessageVariant,
   USER_EDIT_PROFILE_MESSAGE,
 } from "@shared/onboarding-opening";
@@ -59,9 +55,7 @@ export type ChatMessage = {
   role: "assistant" | "user";
   text: string;
   richOnboarding?: boolean;
-  /** Cached “What is Scientific Revolution?” explainer + interview MCQ */
-  whatIsSrBlock?: boolean;
-  /** Cached SR origins story (after “know more”) */
+  /** Cached Sourceful origins story (after “tell me more”) */
   whatIsSrOriginsBlock?: boolean;
   authCardMode?: "login" | "register";
   postAuthActions?: boolean;
@@ -77,9 +71,9 @@ function id() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const EXAMPLE_PROMPTS = [
-  { label: WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT, value: WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT },
-  { label: "Help me onboard", value: HELP_ME_ONBOARD_PROMPT },
+const ENTRY_ACTION_PROMPTS = [
+  { label: HELP_ME_ONBOARD_PROMPT, value: HELP_ME_ONBOARD_PROMPT },
+  { label: SOURCEFUL_KNOW_MORE_PROMPT, value: SOURCEFUL_KNOW_MORE_PROMPT },
 ] as const;
 
 type HomeChatPanelProps = {
@@ -236,25 +230,13 @@ export function HomeChatPanel({
     ]);
   };
 
-  const appendWhatIsSrBlock = () => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: id(),
-        role: "assistant",
-        text: whatIsScientificRevolutionReplyPlain(),
-        whatIsSrBlock: true,
-      },
-    ]);
-  };
-
   const appendWhatIsSrOriginsBlock = () => {
     setMessages((prev) => [
       ...prev,
       {
         id: id(),
         role: "assistant",
-        text: srKnowMoreReplyPlain(),
+        text: "",
         whatIsSrOriginsBlock: true,
       },
     ]);
@@ -329,15 +311,6 @@ export function HomeChatPanel({
       setChatLoading(true);
       await new Promise((r) => setTimeout(r, 520));
       appendOnboardingIntroBlock();
-      setChatLoading(false);
-      return;
-    }
-
-    if (isUserWhatIsScientificRevolutionMessage(text)) {
-      setMessages((prev) => [...prev, userMsg]);
-      setChatLoading(true);
-      await new Promise((r) => setTimeout(r, 520));
-      appendWhatIsSrBlock();
       setChatLoading(false);
       return;
     }
@@ -563,7 +536,7 @@ export function HomeChatPanel({
             onClick={resetChatToHome}
             className="block text-left text-sm hover:underline underline-offset-4 decoration-border hover:decoration-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
           >
-            Scientific Revolution
+            Sourceful
           </button>
         </div>
         {user ? (
@@ -622,8 +595,18 @@ export function HomeChatPanel({
                 onProgress={scheduleScrollToBottom}
               />
             </p>
+            <p
+              className="text-sm font-normal tracking-normal leading-relaxed whitespace-pre-line text-foreground"
+            >
+              <TypewriterText
+                text={SOURCEFUL_ABOUT_TEXT}
+                messageKey={`entry-about-${previewSession}`}
+                msPerChar={3}
+                onProgress={scheduleScrollToBottom}
+              />
+            </p>
             <div className="flex flex-wrap gap-2">
-              {EXAMPLE_PROMPTS.map((p) => (
+              {ENTRY_ACTION_PROMPTS.map((p) => (
                 <button
                   key={p.value}
                   type="button"
@@ -639,28 +622,6 @@ export function HomeChatPanel({
         )}
         {ready &&
           messages.map((m) => {
-            if (m.role === "assistant" && m.whatIsSrBlock) {
-              return (
-                <div key={m.id} className="text-left">
-                  <WhatIsScientificRevolutionBlock
-                    messageKey={m.id}
-                    disabled={chatLoading || linkProfileLoading}
-                    onTypewriterProgress={scheduleScrollToBottom}
-                    onHelpMeOnboard={() => {
-                      if (chatLoading || linkProfileLoading) return;
-                      appendOnboardingIntroBlock();
-                    }}
-                    onKnowMore={() => {
-                      if (chatLoading || linkProfileLoading) return;
-                      void submitUserText(SR_KNOW_MORE_PROMPT);
-                    }}
-                    onSelectInterviewOption={(value) => {
-                      void submitUserText(value);
-                    }}
-                  />
-                </div>
-              );
-            }
             if (m.role === "assistant" && m.whatIsSrOriginsBlock) {
               return (
                 <div key={m.id} className="text-left">

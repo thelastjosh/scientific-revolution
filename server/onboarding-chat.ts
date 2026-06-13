@@ -8,7 +8,6 @@ import {
   isUserSrKnowMoreMessage,
   isUserWhatIsScientificRevolutionMessage,
   srKnowMoreReplyPlain,
-  whatIsScientificRevolutionReplyPlain,
 } from "@shared/onboarding-opening";
 import { openingMessageFromInvite } from "./onboarding-invite-service";
 import {
@@ -76,7 +75,7 @@ export async function completeOnboardingReply(
     return EDIT_PROFILE_AGENT_REPLY;
   }
   if (lastUser && isUserWhatIsScientificRevolutionMessage(lastUser.content)) {
-    return whatIsScientificRevolutionReplyPlain();
+    return srKnowMoreReplyPlain();
   }
   if (lastUser && isUserSrKnowMoreMessage(lastUser.content)) {
     return srKnowMoreReplyPlain();

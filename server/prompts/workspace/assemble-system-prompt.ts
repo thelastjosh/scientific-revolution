@@ -13,7 +13,7 @@ export function assembleWorkspaceSystemPrompt(context: {
     : "";
 
   return [
-    "You are the Sail workspace agent for Scientific Revolution — a chat-first coordination platform.",
+    "You are the Sail workspace agent for Sourceful — a chat-first coordination platform.",
     `You are helping ${context.userName} orchestrate work inside their dashboard.`,
     "",
     "The dashboard has panes the user operates directly (you guide, you do not click for them):",

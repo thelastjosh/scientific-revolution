@@ -48,42 +48,62 @@ export function splitDisplayNameForRegister(displayName: string): {
   return { firstName: t.slice(0, i), lastName: t.slice(i + 1).trim() };
 }
 
-/** Example prompt; when sent, the client shows the prepared SR onboarding block (no LLM). */
+/** Example prompt; when sent, the client shows the onboarding intro block (no LLM). */
 export const HELP_ME_ONBOARD_PROMPT = "Help me onboard";
 
-/** Example prompt; when sent, the client shows a cached SR explainer + interview MCQ (no LLM). */
-export const WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT = "What is Scientific Revolution?";
+/** Shown below the entry hero on the home page. */
+export const SOURCEFUL_ABOUT_TEXT =
+  "Sourceful is a matchmaking service for intrinsically motivated work. It works entirely through email, DMs, and carrier pigeon.";
+
+/** @deprecated alias */
+export const WHAT_IS_SR_REPLY_TEXT = SOURCEFUL_ABOUT_TEXT;
+
+/** Button after entry about text; shows the cached origins story (no LLM). */
+export const SOURCEFUL_KNOW_MORE_PROMPT = "Tell me more about Sourceful";
+
+/** @deprecated alias */
+export const SR_KNOW_MORE_PROMPT = SOURCEFUL_KNOW_MORE_PROMPT;
+
+const LEGACY_KNOW_MORE_PROMPT = "I'd like to know more information about SR";
+
+export function isUserSourcefulKnowMoreMessage(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t === SOURCEFUL_KNOW_MORE_PROMPT.toLowerCase() ||
+    t === LEGACY_KNOW_MORE_PROMPT.toLowerCase()
+  );
+}
+
+/** @deprecated alias */
+export const isUserSrKnowMoreMessage = isUserSourcefulKnowMoreMessage;
+
+/** Legacy prompt (no longer shown as a button). */
+export const WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT = "What is Sourceful?";
+
+const LEGACY_WHAT_IS_SR_PROMPT = "What is Scientific Revolution?";
 
 export function isUserWhatIsScientificRevolutionMessage(text: string): boolean {
-  return text.trim().toLowerCase() === WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT.toLowerCase();
+  const t = text.trim().toLowerCase();
+  return (
+    t === WHAT_IS_SCIENTIFIC_REVOLUTION_PROMPT.toLowerCase() ||
+    t === LEGACY_WHAT_IS_SR_PROMPT.toLowerCase()
+  );
 }
 
-/** Cached explainer body (plain text; rich UI adds buttons below). */
-export const WHAT_IS_SR_REPLY_TEXT = [
-  "Scientific Revolution is a matchmaking service for volunteer-driven work.",
-  "",
-  "Think: distributed teams working on problems that matter, without the overhead of managers or platforms.",
-].join("\n");
-
-/** Button in the SR explainer block; shows the cached origins story (no LLM). */
-export const SR_KNOW_MORE_PROMPT = "I'd like to know more information about SR";
-
-export function isUserSrKnowMoreMessage(text: string): boolean {
-  return text.trim().toLowerCase() === SR_KNOW_MORE_PROMPT.toLowerCase();
-}
-
-/** Cached origins / partner context (shown after SR_KNOW_MORE_PROMPT). */
+/** Cached origins / partner context (shown after SOURCEFUL_KNOW_MORE_PROMPT). */
 export const WHAT_IS_SR_ORIGINS_REPLY_TEXT = [
-  "Scientific Revolution grew out of work Josh led at Public AI—a volunteer movement focused on spreading the benefits and mitigating the harms of AI through public-interest projects.",
+  "Sourceful grew out of work Josh led at Public AI—a volunteer movement focused on spreading the benefits and mitigating the harms of AI through public-interest projects.",
+  "",
+  "The earliest version of this product was called Scientific Revolution, before the name settled on Sourceful.",
   "",
   "Early pilots needed something lighter than another “platform”: a way to match people to mission-aligned work, keep context in one thread, and hand tasks off through email and messaging without a management layer on top.",
   "",
   "That pattern was tested with partners including UNICEF (volunteer coordination around program outreach and partner follow-up) and Metagov (governance and research communities that needed clear handoffs between contributors).",
   "",
-  "Sail—the software behind Scientific Revolution—is the coordination layer those pilots pointed to: chat-first onboarding, a workspace for tasks drafted from real source material, and delivery through the channels people already use.",
+  "Sail—the software behind Sourceful—is the coordination layer those pilots pointed to: chat-first onboarding, an agent for tasks drafted from real source material, and delivery through the channels people already use.",
 ].join("\n");
 
-/** First interview step surfaced immediately after the SR explainer. */
+/** First interview step (legacy rich block / typed flows). */
 export const INTERVIEW_ENTRY_MCQ = {
   question: "What best describes why you're here?",
   options: [
@@ -101,7 +121,7 @@ export const INTERVIEW_ENTRY_MCQ = {
     },
     {
       label: "Just exploring for now",
-      value: "I'm exploring what Scientific Revolution can do.",
+      value: "I'm exploring what Sourceful can do.",
     },
   ],
 } as const;
@@ -112,13 +132,7 @@ export function interviewEntryMcqUserTexts(): string[] {
 
 /** Plain-text reply for API cache / transcript when rich UI is unavailable. */
 export function whatIsScientificRevolutionReplyPlain(): string {
-  const optionLines = INTERVIEW_ENTRY_MCQ.options.map((o) => `- ${o.label}`).join("\n");
-  return [
-    WHAT_IS_SR_REPLY_TEXT,
-    "",
-    INTERVIEW_ENTRY_MCQ.question,
-    optionLines,
-  ].join("\n");
+  return SOURCEFUL_ABOUT_TEXT;
 }
 
 export function srKnowMoreReplyPlain(): string {

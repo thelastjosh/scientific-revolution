@@ -47,9 +47,9 @@ export async function sendInviteEmail(input: {
   creatorUserId?: string | null;
 }) {
   const inviteUrl = `${appBaseUrl()}/?invite=${encodeURIComponent(input.inviteToken)}`;
-  const subject = `${input.inviterName} invited you to Scientific Revolution`;
+  const subject = `${input.inviterName} invited you to Sourceful`;
   const html = `
-    <p>${input.inviterName} invited you to join Scientific Revolution.</p>
+    <p>${input.inviterName} invited you to join Sourceful.</p>
     ${input.organizationName ? `<p>Organization context: <b>${input.organizationName}</b></p>` : ""}
     ${input.contextSummary ? `<p>${input.contextSummary}</p>` : ""}
     <p><a href="${inviteUrl}">Accept invite</a></p>
@@ -108,7 +108,7 @@ export async function sendOnboardingFollowUpEmail(input: {
   recipientEmail: string;
   recipientFirstName: string;
 }) {
-  const subject = "Your Scientific Revolution onboarding is set";
+  const subject = "Your Sourceful onboarding is set";
   const html = `<p>Hi ${input.recipientFirstName}, your workspace is ready.</p>`;
   const resend = getResendClient();
   if (!resend) {
