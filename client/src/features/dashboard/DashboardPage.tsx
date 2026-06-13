@@ -25,6 +25,7 @@ import {
   revokeInvite,
 } from "@/lib/onboarding-api";
 import { ConnectorsPane } from "./ConnectorsPane";
+import { ManifestFieldHelpTooltip, type ManifestFieldId } from "@/features/profile/manifest-field-help";
 
 /** Shared motion for dashboard controls: lift on hover, press on click. */
 const DASH_PRESS =
@@ -82,6 +83,7 @@ export default function DashboardPage() {
     () => tasks.find((t) => t.id === selectedTaskId) ?? null,
     [tasks, selectedTaskId],
   );
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -113,6 +115,12 @@ export default function DashboardPage() {
       });
     },
   });
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length, sendMutation.isPending]);
 
   const profileMutation = useMutation({
     mutationFn: saveProfileDraft,
@@ -310,8 +318,8 @@ export default function DashboardPage() {
     );
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono flex flex-col">
-      <header className="border-b border-border px-4 py-3 flex items-center justify-between">
+    <div className="h-screen overflow-hidden bg-background text-foreground font-mono flex flex-col">
+      <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Workspace
@@ -367,7 +375,7 @@ export default function DashboardPage() {
               Dashboard chat
             </p>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -383,7 +391,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <div className="border-t border-border p-3">
+          <div className="shrink-0 border-t border-border p-3">
             <div className="relative">
               <textarea
                 rows={2}
@@ -419,13 +427,14 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <aside className="min-h-0 overflow-y-auto">
-          <div className="px-4 py-3 border-b border-border">
+        <aside className="min-h-0 flex flex-col overflow-hidden">
+          <div className="shrink-0 px-4 py-3 border-b border-border">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               {activePane} pane
             </p>
           </div>
 
+          <div className="flex-1 min-h-0 overflow-y-auto">
           {activePane === "profile" ? (
             <ProfilePane
               profile={profile}
@@ -701,6 +710,7 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : null}
+          </div>
         </aside>
       </div>
     </div>
@@ -799,6 +809,7 @@ function ProfilePane({
       </div>
       <ManifestEditorBlock
         title="profile.md"
+        helpField="profile"
         value={profileMarkdown}
         onChange={setProfileMarkdown}
         saveState={saveState.profile}
@@ -821,6 +832,7 @@ function ProfilePane({
       />
       <ManifestEditorBlock
         title="relationship.md"
+        helpField="relationship"
         value={relationshipMarkdown}
         onChange={setRelationshipMarkdown}
         saveState={saveState.relationship}
@@ -842,6 +854,7 @@ function ProfilePane({
       />
       <ManifestEditorBlock
         title="skill.md"
+        helpField="skill"
         value={skillMarkdown}
         onChange={setSkillMarkdown}
         saveState={saveState.skill}
@@ -867,6 +880,7 @@ function ProfilePane({
 
 function ManifestEditorBlock({
   title,
+  helpField,
   value,
   onChange,
   saveState,
@@ -875,6 +889,7 @@ function ManifestEditorBlock({
   onSave,
 }: {
   title: string;
+  helpField?: ManifestFieldId;
   value: string;
   onChange: (value: string) => void;
   saveState: "idle" | "saving" | "saved" | "error";
@@ -885,8 +900,9 @@ function ManifestEditorBlock({
   return (
     <div className="border border-border bg-card">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs">
-        <span className="inline-flex items-center border border-border px-2.5 py-1 uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1.5 border border-border px-2.5 py-1 uppercase tracking-wider">
           {title}
+          {helpField ? <ManifestFieldHelpTooltip field={helpField} /> : null}
         </span>
       </div>
       <textarea

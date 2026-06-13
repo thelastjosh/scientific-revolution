@@ -1,8 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
-import { chatMessages, chatSessions, networkTasks } from "@shared/schema";
+import { chatMessages, chatSessions, networkTasks, users } from "@shared/schema";
 import type { WorkspaceChatMessage } from "@shared/network-feed";
 import { getDb } from "./db";
 import { assertUserOrganizationMember } from "./task-organization";
+import { completeWorkspaceReply } from "./workspace-chat-reply";
 
 export function extractTasksFromRawDoc(raw: string): Array<{ title: string; description: string }> {
   const lines = raw
@@ -109,6 +110,20 @@ export async function sendWorkspaceMessage(input: {
     throw err;
   }
 
+  const session = rows[0]!;
+
+  const [userRows, taskRows] = await Promise.all([
+    db.select().from(users).where(eq(users.id, input.userId)).limit(1),
+    db
+      .select({ title: networkTasks.title })
+      .from(networkTasks)
+      .where(eq(networkTasks.ownerUserId, input.userId))
+      .orderBy(asc(networkTasks.createdAt))
+      .limit(20),
+  ]);
+  const user = userRows[0];
+  const userName = user ? `${user.firstName} ${user.lastName}`.trim() : "the user";
+
   const insertedUser = await db
     .insert(chatMessages)
     .values({
@@ -118,15 +133,23 @@ export async function sendWorkspaceMessage(input: {
     })
     .returning();
 
-  const lower = input.content.toLowerCase();
-  let assistantText = "Noted. I can help refine that into tasks, profile updates, or people outreach.";
-  if (lower.includes("extract") || lower.includes("task") || lower.includes("transcript")) {
-    assistantText =
-      "Paste the raw source document and I will extract a first task draft you can edit before submission.";
-  } else if (lower.includes("profile")) {
-    assistantText =
-      "I can update your profile pane fields from this message. Tell me what should change.";
-  }
+  const historyRows = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, input.sessionId))
+    .orderBy(asc(chatMessages.createdAt));
+
+  const assistantText = await completeWorkspaceReply(
+    historyRows.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    {
+      userName,
+      activeIntent: session.activeIntent,
+      taskTitles: taskRows.map((t) => t.title),
+    },
+  );
 
   const insertedAssistant = await db
     .insert(chatMessages)
