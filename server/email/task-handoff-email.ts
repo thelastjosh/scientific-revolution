@@ -1,7 +1,8 @@
 import type { NetworkTask } from "@shared/schema";
 import { emailEvents, networkTasks, users } from "@shared/schema";
 import { getOutboundFromEmail } from "./from-address";
-import { getResendClient } from "./resend-client";
+import { getEmailProvider } from "./email-provider";
+import { sendAppEmail } from "./send-app-email";
 import { getCommTemplatesForOrg } from "../network-templates-service";
 import { appendCommunicationEvent } from "../network-communication-service";
 import { getDb } from "../db";
@@ -14,7 +15,7 @@ import {
 
 const HANDOFF_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-/** Domain for Message-Id / Reply-To (must match verified Resend domain). */
+/** Domain for Message-Id / Reply-To (must match verified sending domain). */
 export function taskEmailDomain(): string {
   const explicit = process.env.TASK_EMAIL_DOMAIN?.trim();
   if (explicit) return explicit.replace(/^@+/, "");
@@ -118,19 +119,18 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
     return { ok: false, reason: "no_organization_for_timeline" };
   }
 
-  const resend = getResendClient();
   const subject = `[Task] ${task.title}`;
-  if (!resend) {
+  if (!getEmailProvider()) {
     await logEmailEvent({
       userId: task.ownerUserId,
       emailType: "task_handoff",
       recipient: to,
       subject,
       status: "skipped",
-      errorMessage: "RESEND_API_KEY not configured",
+      errorMessage: "EMAIL_PROVIDER not configured",
       payload: { taskId: task.id },
     });
-    return { ok: false, reason: "resend_not_configured" };
+    return { ok: false, reason: "email_not_configured" };
   }
 
   try {
@@ -172,8 +172,7 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: getOutboundFromEmail(),
+    const sendResult = await sendAppEmail({
       to,
       subject,
       html,
@@ -182,43 +181,45 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
         "Message-ID": messageId,
       },
     });
-    if (error) {
+    if (!sendResult.ok) {
       await logEmailEvent({
         userId: task.ownerUserId,
         emailType: "task_handoff",
         recipient: to,
         subject,
         status: "failed",
-        errorMessage: error.message,
+        errorMessage: sendResult.reason,
         payload: { taskId: task.id },
       });
-      return { ok: false, reason: error.message };
+      return { ok: false, reason: sendResult.reason };
     }
-    const resendId = data?.id ?? "unknown";
+    const provider = sendResult.provider;
+    const outboundId = sendResult.messageId;
     const traceId = `handoff-${task.id}-${Date.now()}`;
     await appendCommunicationEvent({
       organizationId: orgId,
       traceId,
-      dedupeKey: `resend:handoff:${resendId}`,
+      dedupeKey: `${provider}:handoff:${outboundId}`,
       direction: "outbound",
       channel: "email",
       threadKey: `email:${messageId.replace(/^<|>$/g, "")}`,
       taskId: task.id,
       actorExternalHandle: to,
       body: `Handoff: ${task.title}`,
-      payload: { resendId, messageId, replyTo },
+      payload: { outboundId, provider, messageId, replyTo },
     });
 
     const db = getDb();
     if (db) {
-      const refs = [...(task.externalRefs ?? []), { system: "resend", id: `handoff:${resendId}` }];
+      const refs = [...(task.externalRefs ?? []), { system: provider, id: `handoff:${outboundId}` }];
       const hist = [
         ...(task.history ?? []),
         {
           kind: "handoff_email_sent",
           at: new Date().toISOString(),
           to,
-          resendId,
+          outboundId,
+          provider,
           messageId,
         },
       ];
@@ -238,7 +239,7 @@ export async function sendTaskHandoffEmailIfNeeded(input: {
       recipient: to,
       subject,
       status: "sent",
-      payload: { taskId: task.id, resendId },
+      payload: { taskId: task.id, outboundId, provider },
     });
     return { ok: true };
   } catch (e) {

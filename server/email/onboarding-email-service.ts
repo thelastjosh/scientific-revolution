@@ -1,7 +1,6 @@
 import { emailEvents } from "@shared/schema";
 import { getDb } from "../db";
-import { getOutboundFromEmail } from "./from-address";
-import { getResendClient } from "./resend-client";
+import { sendAppEmail } from "./send-app-email";
 
 function appBaseUrl(): string {
   return (process.env.APP_BASE_URL?.trim() || "http://localhost:5000").replace(/\/+$/, "");
@@ -55,8 +54,12 @@ export async function sendInviteEmail(input: {
     <p><a href="${inviteUrl}">Accept invite</a></p>
   `;
 
-  const resend = getResendClient();
-  if (!resend) {
+  const sendResult = await sendAppEmail({
+    to: input.recipientEmail,
+    subject,
+    html,
+  });
+  if (!sendResult.ok) {
     await logEmailEvent({
       userId: input.creatorUserId ?? null,
       inviteToken: input.inviteToken,
@@ -64,19 +67,13 @@ export async function sendInviteEmail(input: {
       recipient: input.recipientEmail,
       subject,
       status: "skipped",
-      errorMessage: "RESEND_API_KEY not configured",
+      errorMessage: sendResult.reason,
       payload: { inviteUrl },
     });
-    return { sent: false as const, reason: "RESEND_API_KEY not configured", inviteUrl };
+    return { sent: false as const, reason: sendResult.reason, inviteUrl };
   }
 
   try {
-    await resend.emails.send({
-      from: getOutboundFromEmail(),
-      to: input.recipientEmail,
-      subject,
-      html,
-    });
     await logEmailEvent({
       userId: input.creatorUserId ?? null,
       inviteToken: input.inviteToken,
@@ -110,25 +107,23 @@ export async function sendOnboardingFollowUpEmail(input: {
 }) {
   const subject = "Your Sourceful onboarding is set";
   const html = `<p>Hi ${input.recipientFirstName}, your workspace is ready.</p>`;
-  const resend = getResendClient();
-  if (!resend) {
+  const sendResult = await sendAppEmail({
+    to: input.recipientEmail,
+    subject,
+    html,
+  });
+  if (!sendResult.ok) {
     await logEmailEvent({
       userId: input.userId,
       emailType: "onboarding_followup",
       recipient: input.recipientEmail,
       subject,
       status: "skipped",
-      errorMessage: "RESEND_API_KEY not configured",
+      errorMessage: sendResult.reason,
     });
-    return { sent: false as const, reason: "RESEND_API_KEY not configured" };
+    return { sent: false as const, reason: sendResult.reason };
   }
   try {
-    await resend.emails.send({
-      from: getOutboundFromEmail(),
-      to: input.recipientEmail,
-      subject,
-      html,
-    });
     await logEmailEvent({
       userId: input.userId,
       emailType: "onboarding_followup",

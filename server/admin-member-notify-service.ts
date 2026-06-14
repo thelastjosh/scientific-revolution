@@ -1,8 +1,8 @@
 import { and, asc, eq } from "drizzle-orm";
 import { adminEvents, chatMessages, chatSessions, emailEvents, users } from "@shared/schema";
 import { getDb } from "./db";
-import { getOutboundFromEmail } from "./email/from-address";
-import { getResendClient } from "./email/resend-client";
+import { sendAppEmail } from "./email/send-app-email";
+import { getEmailProvider } from "./email/email-provider";
 
 function escapeHtml(s: string): string {
   return s
@@ -44,7 +44,7 @@ export type AdminNotifyResult =
   | { ok: false; reason: string; status?: number };
 
 /**
- * Send a one-off test email to the member's login email (Resend).
+ * Send a one-off test email to the member's login email.
  */
 export async function adminSendTestEmail(input: {
   targetUserId: string;
@@ -59,17 +59,16 @@ export async function adminSendTestEmail(input: {
   const user = rows[0];
   if (!user) return { ok: false, reason: "user_not_found", status: 404 };
 
-  const resend = getResendClient();
-  if (!resend) {
+  if (!getEmailProvider()) {
     await logEmailEvent({
       userId: input.targetUserId,
       emailType: "admin_test",
       recipient: user.email,
       subject: input.subject ?? "[Sail] Admin test email",
       status: "skipped",
-      errorMessage: "RESEND_API_KEY not configured",
+      errorMessage: "EMAIL_PROVIDER not configured",
     });
-    return { ok: false, reason: "resend_not_configured" };
+    return { ok: false, reason: "email_not_configured" };
   }
 
   const subject = (input.subject?.trim() || "[Sail] Admin test email").slice(0, 200);
@@ -79,22 +78,21 @@ export async function adminSendTestEmail(input: {
   const html = `<p>${escapeHtml(body).replace(/\n/g, "<br/>")}</p>`;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: getOutboundFromEmail(),
+    const sendResult = await sendAppEmail({
       to: user.email,
       subject,
       html,
     });
-    if (error) {
+    if (!sendResult.ok) {
       await logEmailEvent({
         userId: input.targetUserId,
         emailType: "admin_test",
         recipient: user.email,
         subject,
         status: "failed",
-        errorMessage: error.message,
+        errorMessage: sendResult.reason,
       });
-      return { ok: false, reason: error.message };
+      return { ok: false, reason: sendResult.reason };
     }
     await logEmailEvent({
       userId: input.targetUserId,
@@ -102,16 +100,20 @@ export async function adminSendTestEmail(input: {
       recipient: user.email,
       subject,
       status: "sent",
-      payload: { resendId: data?.id ?? null, actorUserId: input.actorUserId },
+      payload: {
+        outboundId: sendResult.messageId,
+        provider: sendResult.provider,
+        actorUserId: input.actorUserId,
+      },
     });
     await db.insert(adminEvents).values({
       actorUserId: input.actorUserId,
       eventType: "admin_test_email",
       targetType: "user",
       targetId: input.targetUserId,
-      payload: { subject, resendId: data?.id ?? null },
+      payload: { subject, outboundId: sendResult.messageId, provider: sendResult.provider },
     });
-    return { ok: true, detail: data?.id ?? "sent" };
+    return { ok: true, detail: sendResult.messageId };
   } catch (e) {
     const msg = (e as Error).message ?? "send_failed";
     await logEmailEvent({

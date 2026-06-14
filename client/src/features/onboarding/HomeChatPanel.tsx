@@ -529,7 +529,7 @@ export function HomeChatPanel({
       <header className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Agent
+            Concierge
           </p>
           <button
             type="button"

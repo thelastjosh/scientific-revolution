@@ -44,7 +44,9 @@ export function taskHandoffAlreadySent(
       return true;
     }
     const refs = task.externalRefs ?? [];
-    return refs.some((r) => r.system === "resend" && r.id.startsWith("handoff:"));
+    return refs.some(
+      (r) => (r.system === "resend" || r.system === "agentmail") && r.id.startsWith("handoff:"),
+    );
   }
   const kind = `handoff_${channel}_sent`;
   if (history.some((h) => h && typeof h === "object" && (h as { kind?: string }).kind === kind)) {

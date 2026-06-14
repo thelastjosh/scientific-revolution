@@ -1,7 +1,7 @@
 import type { MatchmakingProposal, NetworkTask, User } from "@shared/schema";
 import { emailEvents } from "@shared/schema";
-import { getOutboundFromEmail } from "./from-address";
-import { getResendClient } from "./resend-client";
+import { sendAppEmail } from "./send-app-email";
+import { getEmailProvider } from "./email-provider";
 import { appendCommunicationEvent } from "../network-communication-service";
 import { getDb } from "../db";
 import { resolveOrganizationIdForTask } from "../task-organization";
@@ -25,7 +25,7 @@ export function matchOfferUrls(token: string) {
 
 export function shouldSkipMatchOfferEmail(): boolean {
   if (process.env.MATCHMAKER_SKIP_EMAIL === "true") return true;
-  if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY?.trim()) {
+  if (process.env.NODE_ENV === "development" && !getEmailProvider()) {
     return true;
   }
   return false;
@@ -85,24 +85,23 @@ export async function sendTaskMatchOfferEmail(input: {
       recipient: to,
       subject,
       status: "skipped",
-      errorMessage: "MATCHMAKER_SKIP_EMAIL or dev without RESEND_API_KEY",
+      errorMessage: "MATCHMAKER_SKIP_EMAIL or dev without email provider",
       payload: { taskId: task.id, proposalId: proposal.id, ...urls },
     });
     return { ok: true, skipped: true };
   }
 
-  const resend = getResendClient();
-  if (!resend) {
+  if (!getEmailProvider()) {
     await logEmailEvent({
       userId: candidate.id,
       emailType: "task_match_offer",
       recipient: to,
       subject,
       status: "skipped",
-      errorMessage: "RESEND_API_KEY not configured",
+      errorMessage: "EMAIL_PROVIDER not configured",
       payload: { taskId: task.id, proposalId: proposal.id },
     });
-    return { ok: false, reason: "resend_not_configured" };
+    return { ok: false, reason: "email_not_configured" };
   }
 
   const orgLine = organizationDisplayName
@@ -131,39 +130,35 @@ export async function sendTaskMatchOfferEmail(input: {
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: getOutboundFromEmail(),
-      to,
-      subject,
-      html,
-    });
-    if (error) {
+    const sendResult = await sendAppEmail({ to, subject, html });
+    if (!sendResult.ok) {
       await logEmailEvent({
         userId: candidate.id,
         emailType: "task_match_offer",
         recipient: to,
         subject,
         status: "failed",
-        errorMessage: error.message,
+        errorMessage: sendResult.reason,
         payload: { taskId: task.id, proposalId: proposal.id },
       });
-      return { ok: false, reason: error.message };
+      return { ok: false, reason: sendResult.reason };
     }
 
-    const resendId = data?.id ?? "unknown";
+    const outboundId = sendResult.messageId;
+    const provider = sendResult.provider;
     const orgId = await resolveOrganizationIdForTask(task);
     if (orgId) {
       await appendCommunicationEvent({
         organizationId: orgId,
         traceId: `match-offer-${proposal.id}`,
-        dedupeKey: `resend:match_offer:${resendId}`,
+        dedupeKey: `${provider}:match_offer:${outboundId}`,
         direction: "outbound",
         channel: "email",
         threadKey: `match-offer:${proposal.id}`,
         taskId: task.id,
         actorExternalHandle: to,
         body: `Match offer: ${task.title}`,
-        payload: { resendId, proposalId: proposal.id, ...urls },
+        payload: { outboundId, provider, proposalId: proposal.id, ...urls },
       });
     }
 
@@ -173,7 +168,7 @@ export async function sendTaskMatchOfferEmail(input: {
       recipient: to,
       subject,
       status: "sent",
-      payload: { taskId: task.id, proposalId: proposal.id, resendId },
+      payload: { taskId: task.id, proposalId: proposal.id, outboundId, provider },
     });
     return { ok: true };
   } catch (e) {

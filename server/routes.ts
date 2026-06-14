@@ -47,6 +47,7 @@ import {
 import { applyInviteContextToUser } from "./invite-application-service";
 import { sendInviteEmail, sendOnboardingFollowUpEmail } from "./email/onboarding-email-service";
 import { registerResendInboundWebhook } from "./email/resend-inbound-webhook";
+import { registerAgentMailInboundWebhook } from "./email/agentmail-inbound-webhook";
 import { sendTaskHandoffEmailIfNeeded } from "./email/task-handoff-email";
 import { sendConnectorHandoffsIfNeeded } from "./connectors/task-handoff-service";
 import { sendAdminTest } from "./connectors/connector-service";
@@ -916,4 +917,5 @@ export async function registerRoutes(app: Express): Promise<void> {
   registerNetworkRoutes(app);
   registerMatchmakingRoutes(app);
   registerResendInboundWebhook(app);
+  registerAgentMailInboundWebhook(app);
 }

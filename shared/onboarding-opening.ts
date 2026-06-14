@@ -53,7 +53,7 @@ export const HELP_ME_ONBOARD_PROMPT = "Help me onboard";
 
 /** Shown below the entry hero on the home page. */
 export const SOURCEFUL_ABOUT_TEXT =
-  "Sourceful is a matchmaking service for intrinsically motivated work. It works entirely through email, DMs, and carrier pigeon.";
+  "Sourceful is a matchmaking service for skilled volunteers. It works entirely through email, phone, and DMs.";
 
 /** @deprecated alias */
 export const WHAT_IS_SR_REPLY_TEXT = SOURCEFUL_ABOUT_TEXT;

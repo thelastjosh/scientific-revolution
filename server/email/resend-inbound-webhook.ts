@@ -1,50 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { Resend } from "resend";
-import { eq } from "drizzle-orm";
-import { networkTasks } from "@shared/schema";
-import { getDb } from "../db";
 import { getResendClient } from "./resend-client";
-import { appendCommunicationEvent } from "../network-communication-service";
-import { decodeTaskEmailRouteToken, tokenFromReplyLocalPart } from "../task-email-route-token";
-import { resolveOrganizationIdForTask } from "../task-organization";
-import { dispatchToOrgAgent } from "../network-dispatch-service";
-import { getAgentByOrganizationId } from "../organization-agent-service";
+import { applyInboundTaskEmailReply } from "./apply-inbound-task-email";
 
 function rawBodyUtf8(req: Request): string {
   const raw = (req as Request & { rawBody?: Buffer }).rawBody;
   if (raw && Buffer.isBuffer(raw)) return raw.toString("utf8");
   return JSON.stringify(req.body ?? {});
-}
-
-function parseMailbox(addr: string): string {
-  const t = addr.trim();
-  const m = t.match(/<([^>]+)>/);
-  if (m?.[1]) return m[1].trim();
-  return t;
-}
-
-function findRouteTokenInRecipients(addresses: string[]): string | null {
-  for (const raw of addresses) {
-    const email = parseMailbox(raw).toLowerCase();
-    const at = email.lastIndexOf("@");
-    if (at <= 0) continue;
-    const local = email.slice(0, at);
-    const tok = tokenFromReplyLocalPart(local);
-    if (tok) return tok;
-  }
-  return null;
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function inboundBodyText(text: string | null | undefined, html: string | null | undefined): string {
-  const t = text?.trim();
-  if (t) return t.slice(0, 100_000);
-  const h = html?.trim();
-  if (h) return stripHtml(h).slice(0, 100_000);
-  return "";
 }
 
 /**
@@ -103,99 +65,26 @@ export function registerResendInboundWebhook(app: Express): void {
 
     const msg = full.data;
     const toList = [...(msg.to ?? [])];
-    const token = findRouteTokenInRecipients(toList);
-    if (!token) {
-      console.info("[resend-inbound] no routing token in recipients", { emailId, to: toList });
-      return res.status(200).json({ ok: true, routed: false });
-    }
 
-    const decoded = decodeTaskEmailRouteToken(token);
-    if (!decoded) {
-      console.info("[resend-inbound] invalid or expired route token", { emailId });
-      return res.status(200).json({ ok: true, routed: false });
-    }
-
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ message: "Database not configured" });
-    }
-
-    const taskRows = await db.select().from(networkTasks).where(eq(networkTasks.id, decoded.taskId)).limit(1);
-    const task = taskRows[0];
-    if (!task || task.ownerUserId !== decoded.ownerUserId) {
-      console.info("[resend-inbound] unknown task or owner mismatch", { emailId, taskId: decoded.taskId });
-      return res.status(200).json({ ok: true, routed: false });
-    }
-
-    const orgId = await resolveOrganizationIdForTask(task);
-    const body = inboundBodyText(msg.text, msg.html);
-    const traceId = `inbound-${emailId}`;
-    const dedupeKey = `resend:inbound:${emailId}`;
-
-    if (orgId) {
-      try {
-        await appendCommunicationEvent({
-          organizationId: orgId,
-          traceId,
-          dedupeKey,
-          direction: "inbound",
-          channel: "email",
-          threadKey: `email:${msg.message_id}`,
-          taskId: task.id,
-          actorExternalHandle: msg.from,
-          body: body || "(no body)",
-          payload: { emailId, subject: msg.subject },
-        });
-      } catch (e) {
-        console.error("[resend-inbound] appendCommunicationEvent", e);
-      }
-    }
-
-    const hist = [
-      ...(task.history ?? []),
-      {
-        kind: "email_reply_received",
-        at: new Date().toISOString(),
+    try {
+      const result = await applyInboundTaskEmailReply({
+        provider: "resend",
+        externalEmailId: emailId,
         from: msg.from,
         subject: msg.subject,
-        emailId,
-      },
-    ];
-    const refs = [...(task.externalRefs ?? []), { system: "resend", id: `inbound:${emailId}` }];
-
-    await db
-      .update(networkTasks)
-      .set({
-        history: hist,
-        externalRefs: refs,
-        updatedAt: new Date(),
-      })
-      .where(eq(networkTasks.id, task.id));
-
-    if (orgId) {
-      const agent = await getAgentByOrganizationId(orgId);
-      const manifest = agent?.capabilityManifest ?? [];
-      if (agent && agent.status === "active" && manifest.includes("email")) {
-        const snippet = body.slice(0, 4000);
-        void dispatchToOrgAgent(orgId, {
-          traceId: `task-email-${emailId}`,
-          networkApiLevel: "1",
-          dispatchKind: "task_update",
-          organizationId: orgId,
-          payload: {
-            taskId: task.id,
-            source: "resend_inbound",
-            emailId,
-            from: msg.from,
-            subject: msg.subject,
-            bodySnippet: snippet,
-          },
-        }, agent.signingSecret).then((r) => {
-          if (!r.ok) console.info("[resend-inbound] agent dispatch", r.reason);
-        });
+        bodyText: msg.text,
+        bodyHtml: msg.html,
+        messageIdForThread: msg.message_id,
+        recipientAddresses: toList,
+      });
+      return res.status(200).json({ ok: true, ...result });
+    } catch (e) {
+      const errMsg = (e as Error).message ?? "processing_failed";
+      if (errMsg === "Database not configured") {
+        return res.status(503).json({ message: errMsg });
       }
+      console.error("[resend-inbound] processing error", e);
+      return res.status(500).json({ message: errMsg });
     }
-
-    return res.status(200).json({ ok: true, routed: true, taskId: task.id });
   });
 }

@@ -1,6 +1,6 @@
 /**
- * Outbound Resend `from` for all app mail (onboarding, task handoff, admin test).
- * Fixed for now; reintroduce `EMAIL_FROM` override here when you need per-env senders.
+ * Outbound `from` for Resend sends (onboarding, task handoff, admin test).
+ * AgentMail sends from AGENTMAIL_INBOX_ID instead; this address is still used for Reply-To domain resolution.
  */
 export const DEFAULT_EMAIL_FROM = "support@sourceful.org";
 
