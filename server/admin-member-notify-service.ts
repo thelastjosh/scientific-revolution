@@ -2,7 +2,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { adminEvents, chatMessages, chatSessions, emailEvents, users } from "@shared/schema";
 import { getDb } from "./db";
 import { sendAppEmail } from "./email/send-app-email";
-import { getEmailProvider } from "./email/email-provider";
+import { getEmailProvider, emailNotConfiguredReason } from "./email/email-provider";
+import { getOutboundFromEmail } from "./email/from-address";
 
 function escapeHtml(s: string): string {
   return s
@@ -60,21 +61,23 @@ export async function adminSendTestEmail(input: {
   if (!user) return { ok: false, reason: "user_not_found", status: 404 };
 
   if (!getEmailProvider()) {
+    const reason = emailNotConfiguredReason();
     await logEmailEvent({
       userId: input.targetUserId,
       emailType: "admin_test",
       recipient: user.email,
       subject: input.subject ?? "[Sail] Admin test email",
       status: "skipped",
-      errorMessage: "EMAIL_PROVIDER not configured",
+      errorMessage: reason,
     });
     return { ok: false, reason: "email_not_configured" };
   }
 
+  const fromAddress = getOutboundFromEmail();
   const subject = (input.subject?.trim() || "[Sail] Admin test email").slice(0, 200);
   const body =
     input.body?.trim() ||
-    "This is a test message from the Sail admin console. If you received this, outbound email is working.";
+    `This is a test message from the Sail admin console, sent via AgentMail from ${fromAddress}. If you received this, outbound email is working.`;
   const html = `<p>${escapeHtml(body).replace(/\n/g, "<br/>")}</p>`;
 
   try {

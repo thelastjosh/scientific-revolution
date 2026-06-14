@@ -1,12 +1,13 @@
-import { getResendClient } from "./resend-client";
 import { getAgentMailClient, getAgentMailInboxId } from "./agentmail-client";
+import { getEmailProvider, emailNotConfiguredReason, type EmailProviderId } from "./email-provider";
 import { getOutboundFromEmail } from "./from-address";
-import { getEmailProvider, type EmailProviderId } from "./email-provider";
+import { getResendClient } from "./resend-client";
 
 export type SendAppEmailInput = {
   to: string;
   subject: string;
   html: string;
+  text?: string;
   replyTo?: string | string[];
   headers?: Record<string, string>;
 };
@@ -58,7 +59,8 @@ async function sendViaAgentMail(input: SendAppEmailInput): Promise<SendAppEmailR
       to: input.to,
       subject: input.subject,
       html: input.html,
-      replyTo: input.replyTo,
+      text: input.text,
+      replyTo: input.replyTo ?? inboxId,
       headers: input.headers,
     });
     return { ok: true, provider: "agentmail", messageId: response.messageId };
@@ -72,7 +74,7 @@ async function sendViaAgentMail(input: SendAppEmailInput): Promise<SendAppEmailR
 export async function sendAppEmail(input: SendAppEmailInput): Promise<SendAppEmailResult> {
   const provider = getEmailProvider();
   if (!provider) {
-    return { ok: false, provider: null, reason: "EMAIL_PROVIDER not configured" };
+    return { ok: false, provider: null, reason: emailNotConfiguredReason() };
   }
   if (provider === "agentmail") return sendViaAgentMail(input);
   return sendViaResend(input);

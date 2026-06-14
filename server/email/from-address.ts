@@ -1,9 +1,17 @@
-/**
- * Outbound `from` for Resend sends (onboarding, task handoff, admin test).
- * AgentMail sends from AGENTMAIL_INBOX_ID instead; this address is still used for Reply-To domain resolution.
- */
+import { getAgentMailInboxId } from "./agentmail-client";
+import { getEmailProvider } from "./email-provider";
+
+/** Legacy Resend sender when EMAIL_PROVIDER=resend. */
 export const DEFAULT_EMAIL_FROM = "support@sourceful.org";
 
+/**
+ * Outbound From for logging / Reply-To domain resolution.
+ * AgentMail sends from AGENTMAIL_INBOX_ID; Resend uses EMAIL_FROM or DEFAULT_EMAIL_FROM.
+ */
 export function getOutboundFromEmail(): string {
-  return DEFAULT_EMAIL_FROM;
+  if (getEmailProvider() === "agentmail") {
+    return getAgentMailInboxId() ?? DEFAULT_EMAIL_FROM;
+  }
+  const fromEnv = process.env.EMAIL_FROM?.trim();
+  return fromEnv || DEFAULT_EMAIL_FROM;
 }
