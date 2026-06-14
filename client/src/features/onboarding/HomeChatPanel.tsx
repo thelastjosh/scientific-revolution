@@ -637,7 +637,6 @@ export function HomeChatPanel({
                 <div key={m.id} className="text-left">
                   <OnboardingIntro
                     inviteFirstName={inviteFirstName}
-                    inviteToken={inviteToken}
                     linkBusy={linkProfileLoading}
                     onAddLink={handleAddLink}
                     onUploadCv={uploadCvFromFile}

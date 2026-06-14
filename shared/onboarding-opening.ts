@@ -161,7 +161,6 @@ export const ONBOARDING_OPENING_BODY = `You can onboard through a few ways:
 
 Add a link (e.g. site or LinkedIn) — use the field in the onboarding block.
 Upload a CV — use the upload control in the chat.
-Use an invite code or link — paste it into the invite field in the chat.
 Continue the interview in chat, or create an account when you're ready.`;
 
 export function formatOnboardingOpeningMessage(

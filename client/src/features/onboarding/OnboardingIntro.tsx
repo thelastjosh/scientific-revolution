@@ -1,26 +1,10 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useState } from "react";
 import { onboardingGreetingLine } from "@shared/onboarding-opening";
 import { toast } from "@/hooks/use-toast";
-
-function parseInviteToken(raw: string): string | null {
-  const t = raw.trim();
-  if (!t) return null;
-  try {
-    const u = new URL(t, typeof window !== "undefined" ? window.location.origin : "http://localhost");
-    const q = u.searchParams.get("invite");
-    if (q?.trim()) return q.trim();
-  } catch {
-    /* ignore */
-  }
-  return t;
-}
 
 type OnboardingIntroProps = {
   /** Shown above the main block when the visitor arrived via a named invite */
   inviteFirstName?: string | null;
-  /** Current `?invite=` token, if any — keeps the field in sync with the URL */
-  inviteToken?: string | null;
   onContinueInterview?: () => void;
   onSkipOnboarding?: () => void;
   /** Called with a public URL the user pastes (e.g. LinkedIn, personal site) */
@@ -38,7 +22,6 @@ type OnboardingIntroProps = {
 
 export function OnboardingIntro({
   inviteFirstName,
-  inviteToken,
   onContinueInterview,
   onSkipOnboarding,
   onAddLink,
@@ -50,28 +33,7 @@ export function OnboardingIntro({
   linkBusy = false,
   inviteValidity = "not_found",
 }: OnboardingIntroProps) {
-  const [, navigate] = useLocation();
   const [linkField, setLinkField] = useState("");
-  const [inviteField, setInviteField] = useState(
-    () => inviteToken?.trim() ?? "",
-  );
-
-  useEffect(() => {
-    setInviteField(inviteToken?.trim() ?? "");
-  }, [inviteToken]);
-
-  const applyInvite = () => {
-    const token = parseInviteToken(inviteField);
-    if (!token) {
-      toast({
-        title: "Paste an invite",
-        description: "Add a code or a link that includes ?invite=…",
-      });
-      return;
-    }
-    navigate(`/?invite=${encodeURIComponent(token)}`);
-  };
-
   const greeting = onboardingGreetingLine(inviteFirstName);
   const actionButtonClass =
     "shrink-0 border border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors hover:bg-secondary/50 active:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground disabled:opacity-50";
@@ -197,31 +159,6 @@ export function OnboardingIntro({
               </pre>
             </div>
           ) : null}
-        </li>
-
-        <li className="space-y-2">
-          <p
-            className="text-muted-foreground font-normal"
-            style={{ fontSize: "0.8125rem", lineHeight: 1.45 }}
-          >
-            Use an invite code or link
-          </p>
-          <div className="flex flex-wrap items-stretch gap-2 max-w-md">
-            <input
-              type="text"
-              value={inviteField}
-              onChange={(e) => setInviteField(e.target.value)}
-              placeholder="Paste code or link"
-              className="min-w-[12rem] flex-1 border border-border bg-background px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-foreground"
-            />
-            <button
-              type="button"
-              onClick={applyInvite}
-              className={actionButtonClass}
-            >
-              Apply
-            </button>
-          </div>
         </li>
 
         <li>
